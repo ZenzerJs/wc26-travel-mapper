@@ -488,12 +488,17 @@ export async function searchSkyscannerFlights(
 
     if (!response.ok) {
       console.error('Skyscanner API error:', response.status, text.substring(0, 500));
-      lastError =
-        response.status === 403
-          ? 'Flight search unavailable: this RapidAPI key is not subscribed to Flights Scraper Sky.'
-          : response.status === 429
-            ? 'Flight search unavailable: RapidAPI rate limit reached. Try again later.'
-            : 'Flight search unavailable. Try checking Google Flights directly.';
+      if (response.status === 403) {
+        throw new Error('Flight search unavailable: RapidAPI key is not subscribed to Flights Scraper Sky.');
+      }
+
+      if (response.status === 429) {
+        throw new Error(
+          'RapidAPI monthly quota exceeded for Flights Scraper Sky. Add free Amadeus keys (developers.amadeus.com) or upgrade your RapidAPI plan.'
+        );
+      }
+
+      lastError = 'Flight search unavailable. Try checking Google Flights directly.';
       continue;
     }
 

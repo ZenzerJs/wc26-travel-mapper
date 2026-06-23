@@ -11,6 +11,13 @@ export function getRapidApiKey(): string | undefined {
   return process.env.RAPIDAPI_KEY;
 }
 
+export function getAmadeusCredentials(): { clientId: string; clientSecret: string } | null {
+  const clientId = process.env.AMADEUS_CLIENT_ID;
+  const clientSecret = process.env.AMADEUS_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return null;
+  return { clientId, clientSecret };
+}
+
 export function getOpenWeatherApiKey(): string | undefined {
   return process.env.OPENWEATHER_API_KEY;
 }

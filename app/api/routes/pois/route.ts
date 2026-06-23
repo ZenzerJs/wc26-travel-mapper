@@ -127,6 +127,12 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const text = await response.text();
       console.error('Camino POI error:', response.status, text.substring(0, 300));
+      if (response.status === 429) {
+        return NextResponse.json(
+          { pois: [], error: 'POI search monthly limit reached on Camino AI (100 free calls/month).' },
+          { status: 502 }
+        );
+      }
       return NextResponse.json({ pois: [], error: 'POI search failed' }, { status: 502 });
     }
 
