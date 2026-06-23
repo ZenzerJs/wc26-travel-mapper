@@ -199,6 +199,10 @@ export default function HomePage() {
           const response = await fetchFlights({
             originCity: origin.name,
             destinationCity: destination.name,
+            originIata: origin.iata,
+            destinationIata: destination.iata,
+            originCountry: origin.country,
+            destinationCountry: destination.country,
             date: new Date(Date.now() + 7 * 86_400_000).toISOString().split('T')[0],
           });
           setFlights(response.flights);
@@ -337,6 +341,10 @@ export default function HomePage() {
       const response = await fetchFlights({
         originCity: activeOrigin.name,
         destinationCity: activeDestination.name,
+        originIata: activeOrigin.iata,
+        destinationIata: activeDestination.iata,
+        originCountry: activeOrigin.country,
+        destinationCountry: activeDestination.country,
         date: new Date(Date.now() + 7 * 86_400_000).toISOString().split('T')[0],
       });
       setFlights(response.flights);

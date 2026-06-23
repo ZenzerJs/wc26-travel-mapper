@@ -10,6 +10,10 @@ import type { GroundRouteMode, POICategoryGroup, RoutePOI } from '@/lib/types';
 
 const STANDARD_POI_GROUPS: POICategoryGroup[] = ['food', 'arts', 'outdoors'];
 
+/** Cap sample points to stay within Camino AI free-tier limits. */
+const MAX_POI_SAMPLE_POINTS = 5;
+const MAX_HOTEL_SAMPLE_POINTS = 3;
+
 function getStandardCategories(mode: GroundRouteMode): POICategoryGroup[] {
   if (mode === 'driving') {
     return [...STANDARD_POI_GROUPS, 'gas'];
@@ -62,8 +66,14 @@ export async function discoverPoisAlongRoute(
   geometry: GeoJSON.LineString,
   mode: GroundRouteMode
 ): Promise<RoutePOI[]> {
-  const standardSamplePoints = sampleRouteEveryKm(geometry, ROUTE_SAMPLE_INTERVAL_KM);
-  const hotelSamplePoints = sampleRouteEveryKm(geometry, HOTEL_SAMPLE_INTERVAL_KM);
+  const standardSamplePoints = sampleRouteEveryKm(geometry, ROUTE_SAMPLE_INTERVAL_KM).slice(
+    0,
+    MAX_POI_SAMPLE_POINTS
+  );
+  const hotelSamplePoints = sampleRouteEveryKm(geometry, HOTEL_SAMPLE_INTERVAL_KM).slice(
+    0,
+    MAX_HOTEL_SAMPLE_POINTS
+  );
   const categories = getStandardCategories(mode);
   const seen = new Set<string>();
   const pois: RoutePOI[] = [];

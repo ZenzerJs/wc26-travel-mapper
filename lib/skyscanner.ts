@@ -126,6 +126,11 @@ function extractEntityId(autoCompleteData: unknown): string | undefined {
       }
     }
 
+    const placeId = readString(item.PlaceId) ?? readString(item.placeId);
+    if (placeId) {
+      return placeId;
+    }
+
     const skyId = readString(item.skyId) ?? readString(item.SkyId);
     if (skyId) {
       return skyId;
@@ -135,38 +140,64 @@ function extractEntityId(autoCompleteData: unknown): string | undefined {
     if (entityId) {
       return entityId;
     }
-
-    const placeId = readString(item.placeId) ?? readString(item.PlaceId);
-    if (placeId) {
-      return placeId;
-    }
   }
 
   return undefined;
 }
 
-async function resolveEntityId(apiKey: string, cityName: string): Promise<string> {
-  const { response, data, text } = await skyscannerGet({
-    apiKey,
-    path: '/flights/auto-complete',
-    searchParams: {
-      query: cityName.trim(),
-      market: 'US',
-      locale: 'en-US',
-    },
-  });
+interface PlaceLookup {
+  cityName: string;
+  iata?: string;
+  country?: string;
+}
+
+async function tryAutocomplete(
+  apiKey: string,
+  query: string,
+  path: '/web/flights/auto-complete' | '/flights/auto-complete'
+): Promise<string | undefined> {
+  const searchParams: Record<string, string> = { query: query.trim() };
+  if (path === '/flights/auto-complete') {
+    searchParams.market = 'US';
+    searchParams.locale = 'en-US';
+  }
+
+  const { response, data, text } = await skyscannerGet({ apiKey, path, searchParams });
 
   if (!response.ok) {
-    console.error(`Origin auto-complete failed for "${cityName}":`, response.status, text.substring(0, 300));
-    throw new Error(`No airport found for ${cityName}`);
+    console.error(`Auto-complete failed for "${query}" (${path}):`, response.status, text.substring(0, 200));
+    return undefined;
   }
 
-  const entityId = extractEntityId(data);
-  if (!entityId) {
-    throw new Error(`No airport found for ${cityName}`);
+  return extractEntityId(data);
+}
+
+async function resolvePlaceId(apiKey: string, lookup: PlaceLookup): Promise<string> {
+  const queries = [
+    lookup.cityName.trim(),
+    lookup.country ? `${lookup.cityName.trim()}, ${lookup.country}` : null,
+    lookup.iata?.trim().toUpperCase() ?? null,
+    lookup.iata?.toUpperCase() === 'EWR' ? 'Newark' : null,
+    lookup.iata?.toUpperCase() === 'EWR' ? 'Newark Liberty' : null,
+  ].filter((q): q is string => Boolean(q));
+
+  const uniqueQueries = Array.from(new Set(queries));
+
+  for (const query of uniqueQueries) {
+    for (const path of ['/web/flights/auto-complete', '/flights/auto-complete'] as const) {
+      const placeId = await tryAutocomplete(apiKey, query, path);
+      if (placeId) {
+        return placeId;
+      }
+    }
   }
 
-  return entityId;
+  // When auto-complete is down, the search API accepts IATA codes directly.
+  if (lookup.iata && /^[A-Za-z]{3}$/.test(lookup.iata)) {
+    return lookup.iata.trim().toUpperCase();
+  }
+
+  throw new Error(`No airport found for ${lookup.cityName}`);
 }
 
 function getContext(data: unknown): Record<string, unknown> | null {
@@ -181,20 +212,56 @@ function getContext(data: unknown): Record<string, unknown> | null {
 
 function getSessionId(data: unknown): string | undefined {
   const context = getContext(data);
-  return context ? readString(context.sessionId) : undefined;
+  if (context) {
+    const sessionId = readString(context.sessionId);
+    if (sessionId) return sessionId;
+  }
+
+  if (!isRecord(data)) return undefined;
+  const inner = isRecord(data.data) ? data.data : data;
+  return readString(inner.sessionId) ?? readString(inner.token);
 }
 
 function getStatus(data: unknown): string | undefined {
   const context = getContext(data);
-  return context ? readString(context.status)?.toLowerCase() : undefined;
+  if (context) {
+    const status = readString(context.status)?.toLowerCase();
+    if (status) return status;
+  }
+
+  if (!isRecord(data)) return undefined;
+  const inner = isRecord(data.data) ? data.data : data;
+  const status = readString(inner.status)?.toLowerCase();
+  return status === 'false' ? 'failed' : status;
+}
+
+function hasSearchFailure(data: unknown): boolean {
+  if (!isRecord(data)) return true;
+
+  if (readString(data.errors)) return true;
+
+  const inner = isRecord(data.data) ? data.data : data;
+  if (isRecord(inner) && inner.errors) return true;
+  if (isRecord(inner) && inner.status === false) return true;
+
+  return false;
+}
+
+function unwrapSearchPayload(data: unknown): Record<string, unknown> | null {
+  if (!isRecord(data)) return null;
+
+  const level1 = isRecord(data.data) ? data.data : data;
+  if (isRecord(level1.data)) {
+    return level1.data;
+  }
+
+  return level1;
 }
 
 function extractItineraryResults(data: unknown): unknown[] {
-  if (!isRecord(data)) {
-    return [];
-  }
+  const inner = unwrapSearchPayload(data);
+  if (!inner) return [];
 
-  const inner = isRecord(data.data) ? data.data : data;
   const itineraries = inner.itineraries;
 
   if (isRecord(itineraries) && Array.isArray(itineraries.results)) {
@@ -384,48 +451,65 @@ export async function searchSkyscannerFlights(
   apiKey: string,
   originCity: string,
   destinationCity: string,
-  date?: string
+  date?: string,
+  originIata?: string,
+  destinationIata?: string,
+  originCountry?: string,
+  destinationCountry?: string
 ): Promise<FlightResult[]> {
   const departDate = resolveSearchDate(date);
-  const [fromEntityId, toEntityId] = await Promise.all([
-    resolveEntityId(apiKey, originCity),
-    resolveEntityId(apiKey, destinationCity),
+  const [placeIdFrom, placeIdTo] = await Promise.all([
+    resolvePlaceId(apiKey, { cityName: originCity, iata: originIata, country: originCountry }),
+    resolvePlaceId(apiKey, { cityName: destinationCity, iata: destinationIata, country: destinationCountry }),
   ]);
 
-  const { response, data, text } = await skyscannerGet({
-    apiKey,
-    path: '/web/flights/search-one-way',
-    searchParams: {
-      fromEntityId,
-      toEntityId,
-      departDate,
-      adults: '1',
-      currency: 'USD',
-      market: 'US',
-      locale: 'en-US',
-      cabinClass: 'economy',
-    },
-  });
+  let lastError = 'Flight search unavailable. Try checking Google Flights directly.';
+  let completedData: unknown = null;
 
-  if (!response.ok) {
-    console.error('Skyscanner API error:', response.status, text.substring(0, 500));
-    if (response.status === 403) {
-      throw new Error('Flight search unavailable: this RapidAPI key is not subscribed to Flights Scraper Sky.');
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt > 0) {
+      await sleep(1500 * attempt);
     }
 
-    if (response.status === 429) {
-      throw new Error('Flight search unavailable: RapidAPI rate limit reached. Try again later.');
+    const { response, data, text } = await skyscannerGet({
+      apiKey,
+      path: '/web/flights/search-one-way',
+      searchParams: {
+        placeIdFrom,
+        placeIdTo,
+        departDate,
+        adults: '1',
+        currency: 'USD',
+        market: 'US',
+        locale: 'en-US',
+        cabinClass: 'economy',
+      },
+    });
+
+    if (!response.ok) {
+      console.error('Skyscanner API error:', response.status, text.substring(0, 500));
+      lastError =
+        response.status === 403
+          ? 'Flight search unavailable: this RapidAPI key is not subscribed to Flights Scraper Sky.'
+          : response.status === 429
+            ? 'Flight search unavailable: RapidAPI rate limit reached. Try again later.'
+            : 'Flight search unavailable. Try checking Google Flights directly.';
+      continue;
     }
 
-    throw new Error('Flight search unavailable. Try checking Google Flights directly.');
+    if (hasSearchFailure(data)) {
+      console.error('Skyscanner search returned errors:', text.substring(0, 400));
+      lastError = 'Flight search temporarily unavailable. Try again or use Skyscanner directly.';
+      continue;
+    }
+
+    completedData = await pollSearchUntilComplete(apiKey, data);
+    const flights = parseFlights(completedData);
+
+    if (flights.length > 0) {
+      return flights;
+    }
   }
 
-  const completedData = await pollSearchUntilComplete(apiKey, data);
-  const flights = parseFlights(completedData);
-
-  if (flights.length === 0) {
-    throw new Error('Flight search unavailable. Try checking Google Flights directly.');
-  }
-
-  return flights;
+  throw new Error(lastError);
 }

@@ -104,6 +104,10 @@ export interface FlightResult {
 export interface FlightSearchRequest {
   originCity: string;
   destinationCity: string;
+  originIata?: string;
+  destinationIata?: string;
+  originCountry?: string;
+  destinationCountry?: string;
   date?: string;
 }
 

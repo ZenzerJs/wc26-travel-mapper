@@ -23,7 +23,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   }
 
-  const { originCity, destinationCity, date } = body as Partial<FlightSearchRequest>;
+  const { originCity, destinationCity, originIata, destinationIata, originCountry, destinationCountry, date } =
+    body as Partial<FlightSearchRequest>;
 
   if (!isValidCityName(originCity) || !isValidCityName(destinationCity) || !isValidFlightDate(date)) {
     return NextResponse.json(
@@ -37,7 +38,11 @@ export async function POST(request: NextRequest) {
       apiKey,
       originCity.trim(),
       destinationCity.trim(),
-      date
+      date,
+      originIata?.trim().toUpperCase(),
+      destinationIata?.trim().toUpperCase(),
+      originCountry?.trim(),
+      destinationCountry?.trim()
     );
     const response: FlightSearchResponse = { flights };
     return NextResponse.json(response);

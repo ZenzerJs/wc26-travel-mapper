@@ -18,3 +18,8 @@ export function getOpenWeatherApiKey(): string | undefined {
 export function getFoursquareApiKey(): string | undefined {
   return process.env.FOURSQUARE_API_KEY;
 }
+
+/** Camino AI location API — also reads FOURSQUARE_API_KEY for backward compatibility. */
+export function getCaminoApiKey(): string | undefined {
+  return process.env.CAMINO_API_KEY ?? process.env.FOURSQUARE_API_KEY;
+}
