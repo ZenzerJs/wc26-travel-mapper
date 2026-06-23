@@ -4,15 +4,33 @@ import {
   POI_CATEGORY_IDS,
   ROUTE_SAMPLE_INTERVAL_KM,
 } from '@/lib/constants';
-import { distanceToRouteMeters, sampleRouteEveryKm } from '@/lib/geo';
+import { distanceToRouteMeters, pickEvenlySpaced, routeLengthKm, sampleRouteEveryKm } from '@/lib/geo';
 import { fetchPois } from '@/lib/pois-client';
 import type { GroundRouteMode, POICategoryGroup, RoutePOI } from '@/lib/types';
 
 const STANDARD_POI_GROUPS: POICategoryGroup[] = ['food', 'arts', 'outdoors'];
 
-/** Cap sample points to stay within Camino AI free-tier limits. */
-const MAX_POI_SAMPLE_POINTS = 5;
-const MAX_HOTEL_SAMPLE_POINTS = 3;
+interface SamplingPlan {
+  poiIntervalKm: number;
+  maxPoiPoints: number;
+  hotelIntervalKm: number;
+  maxHotelPoints: number;
+}
+
+/** Scale sample density with route length so long drives get stops along the whole path. */
+function getSamplingPlan(lengthKm: number): SamplingPlan {
+  if (lengthKm <= 500) {
+    return { poiIntervalKm: 80, maxPoiPoints: 5, hotelIntervalKm: 150, maxHotelPoints: 3 };
+  }
+  if (lengthKm <= 1200) {
+    return { poiIntervalKm: 150, maxPoiPoints: 8, hotelIntervalKm: 250, maxHotelPoints: 5 };
+  }
+  if (lengthKm <= 2000) {
+    return { poiIntervalKm: 200, maxPoiPoints: 10, hotelIntervalKm: 350, maxHotelPoints: 6 };
+  }
+  // Cross-country hauls (e.g. New York → Dallas ~2,500 km)
+  return { poiIntervalKm: 220, maxPoiPoints: 12, hotelIntervalKm: 400, maxHotelPoints: 7 };
+}
 
 function getStandardCategories(mode: GroundRouteMode): POICategoryGroup[] {
   if (mode === 'driving') {
@@ -53,7 +71,7 @@ async function fetchCategoryAtPoints(
             distanceFromRoute: distanceToRouteMeters({ lat: poi.lat, lng: poi.lng }, geometry),
           });
         } else {
-          pois.push(poi);
+          pois.push({ ...poi, categoryGroup: group });
         }
       }
     } catch {
@@ -66,14 +84,18 @@ export async function discoverPoisAlongRoute(
   geometry: GeoJSON.LineString,
   mode: GroundRouteMode
 ): Promise<RoutePOI[]> {
-  const standardSamplePoints = sampleRouteEveryKm(geometry, ROUTE_SAMPLE_INTERVAL_KM).slice(
-    0,
-    MAX_POI_SAMPLE_POINTS
+  const lengthKm = routeLengthKm(geometry);
+  const plan = getSamplingPlan(lengthKm);
+
+  const allPoiSamples = sampleRouteEveryKm(
+    geometry,
+    plan.poiIntervalKm || ROUTE_SAMPLE_INTERVAL_KM
   );
-  const hotelSamplePoints = sampleRouteEveryKm(geometry, HOTEL_SAMPLE_INTERVAL_KM).slice(
-    0,
-    MAX_HOTEL_SAMPLE_POINTS
-  );
+  const standardSamplePoints = pickEvenlySpaced(allPoiSamples, plan.maxPoiPoints);
+
+  const allHotelSamples = sampleRouteEveryKm(geometry, plan.hotelIntervalKm || HOTEL_SAMPLE_INTERVAL_KM);
+  const hotelSamplePoints = pickEvenlySpaced(allHotelSamples, plan.maxHotelPoints);
+
   const categories = getStandardCategories(mode);
   const seen = new Set<string>();
   const pois: RoutePOI[] = [];

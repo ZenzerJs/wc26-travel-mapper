@@ -128,6 +128,32 @@ export function sampleRouteEveryKm(
   return samples;
 }
 
+/** Total polyline length in kilometres. */
+export function routeLengthKm(geometry: GeoJSON.LineString): number {
+  const coords = geometry.coordinates as [number, number][];
+  if (coords.length < 2) return 0;
+
+  let totalM = 0;
+  for (let i = 1; i < coords.length; i++) {
+    totalM += haversineMeters(coords[i - 1], coords[i]);
+  }
+  return totalM / 1000;
+}
+
+/** Pick `count` items spread evenly across the full array (includes first and last). */
+export function pickEvenlySpaced<T>(items: T[], count: number): T[] {
+  if (items.length === 0 || count <= 0) return [];
+  if (items.length <= count) return items;
+  if (count === 1) return [items[0]];
+
+  const picked: T[] = [];
+  for (let i = 0; i < count; i++) {
+    const index = Math.round((i / (count - 1)) * (items.length - 1));
+    picked.push(items[index]);
+  }
+  return picked;
+}
+
 function haversineMetersBetweenPoints(
   lat1: number,
   lng1: number,

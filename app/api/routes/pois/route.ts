@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     url.searchParams.set('lon', String(lng));
     url.searchParams.set('radius', String(Math.min(radius, 10000)));
     url.searchParams.set('rank', 'true');
-    url.searchParams.set('limit', '5');
+    url.searchParams.set('limit', '8');
 
     const response = await fetch(url.toString(), {
       headers: {
