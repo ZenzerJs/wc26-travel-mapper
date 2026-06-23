@@ -27,3 +27,8 @@ export function isValidFlightDate(value: unknown): value is string | undefined {
   if (value === undefined || value === null || value === '') return true;
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
+
+/** City names for Skyscanner auto-complete (not IATA codes). */
+export function isValidCityName(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length >= 2 && value.trim().length <= 100;
+}

@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { POI_CATEGORY_IDS } from '@/lib/constants';
-import { getMapboxServerToken } from '@/lib/server-secrets';
+import { DEFAULT_POI_RADIUS_METERS, POI_CATEGORY_IDS } from '@/lib/constants';
+import { getFoursquareApiKey } from '@/lib/server-secrets';
 import type { POICategoryGroup, POIResponse, POISearchRequest, RoutePOI } from '@/lib/types';
 import { isValidCoordinate } from '@/lib/validate-request';
 
 const ALLOWED_CATEGORY_IDS = new Set(Object.values(POI_CATEGORY_IDS));
-
-// Map our internal category IDs to Mapbox Search Box API category slugs
-const MAPBOX_CATEGORIES: Record<string, string[]> = {
-  '13000': ['restaurant', 'cafe', 'fast_food'],
-  '10000': ['museum', 'cinema', 'art_gallery'],
-  '16000': ['park', 'national_park', 'stadium'],
-  '4bf58dd8d48988d113951735': ['gas_station'],
-  '4bf58dd8d48988d1f8931735': ['hotel'],
-};
 
 const CATEGORY_ID_TO_GROUP: Record<string, POICategoryGroup> = {
   '13000': 'food',
@@ -23,87 +14,56 @@ const CATEGORY_ID_TO_GROUP: Record<string, POICategoryGroup> = {
   '4bf58dd8d48988d1f8931735': 'hotels',
 };
 
-interface MapboxSearchFeature {
-  type: 'Feature';
-  geometry: { type: 'Point'; coordinates: [number, number] };
-  properties: {
-    mapbox_id?: string;
-    name?: string;
-    name_preferred?: string;
-    poi_category?: string[];
-    poi_category_ids?: string[];
-    full_address?: string;
-    address?: string;
-    place_formatted?: string;
-  };
+// Map internal category IDs to Foursquare v3 category IDs.
+const FOURSQUARE_CATEGORIES: Record<string, string> = {
+  '13000': '13065',
+  '10000': '10000',
+  '16000': '16000',
+  '4bf58dd8d48988d113951735': '19007',
+  '4bf58dd8d48988d1f8931735': '19009',
+};
+
+interface FoursquarePlace {
+  fsq_id?: string;
+  name?: string;
+  categories?: Array<{ id?: number; name?: string }>;
+  rating?: number;
+  geocodes?: { main?: { latitude?: number; longitude?: number } };
+  location?: { formatted_address?: string };
 }
 
-interface MapboxSearchResponse {
-  type: 'FeatureCollection';
-  features: MapboxSearchFeature[];
+interface FoursquareSearchResponse {
+  results?: FoursquarePlace[];
 }
 
-async function searchMapboxCategory(
-  token: string,
-  category: string,
-  lat: number,
-  lng: number,
-  limit: number
-): Promise<MapboxSearchFeature[]> {
-  const url = new URL(
-    `https://api.mapbox.com/search/searchbox/v1/category/${encodeURIComponent(category)}`
-  );
-  url.searchParams.set('proximity', `${lng},${lat}`);
-  url.searchParams.set('limit', String(limit));
-  url.searchParams.set('access_token', token);
+function placeToRoutePoi(place: FoursquarePlace, categoryGroup: POICategoryGroup): RoutePOI | null {
+  const lat = place.geocodes?.main?.latitude;
+  const lng = place.geocodes?.main?.longitude;
+  const name = place.name;
+  const id = place.fsq_id;
 
-  const response = await fetch(url.toString(), {
-    headers: { Accept: 'application/json' },
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    console.error(`Mapbox Search error ${response.status} for ${category}:`, text.substring(0, 200));
-    return [];
+  if (lat === undefined || lng === undefined || !name || !id) {
+    return null;
   }
 
-  const data = (await response.json()) as MapboxSearchResponse;
-  return data.features ?? [];
-}
-
-function featureToRoutePoi(
-  feature: MapboxSearchFeature,
-  categoryGroup: POICategoryGroup
-): RoutePOI | null {
-  const [lng, lat] = feature.geometry.coordinates;
-  const props = feature.properties;
-  const name = props.name_preferred ?? props.name;
-  if (!name) return null;
-
-  const categoryLabel =
-    props.poi_category?.[0]
-      ?.split('_')
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ') ?? categoryGroup;
-
   return {
-    id: props.mapbox_id ?? `mapbox-${lat}-${lng}-${name}`,
+    id,
     name,
-    category: categoryLabel,
+    category: place.categories?.[0]?.name ?? categoryGroup,
     categoryGroup,
+    rating: place.rating,
     lat,
     lng,
-    address: props.full_address ?? props.place_formatted ?? props.address ?? '',
-    rating: undefined,
+    address: place.location?.formatted_address ?? '',
   };
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const token = getMapboxServerToken();
+    const apiKey = getFoursquareApiKey();
 
-    if (!token) {
-      return NextResponse.json({ error: 'Mapbox server token is not configured.' }, { status: 500 });
+    if (!apiKey) {
+      return NextResponse.json({ error: 'Foursquare API key is not configured.' }, { status: 500 });
     }
 
     let body: unknown;
@@ -118,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = body as Partial<POISearchRequest>;
-    const { categoryId } = payload;
+    const { categoryId, radius: requestedRadius } = payload;
 
     if (!isValidCoordinate(payload)) {
       return NextResponse.json(
@@ -127,43 +87,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { lat, lng } = payload as { lat: number; lng: number };
+    const { lat, lng } = payload;
+    const radius =
+      typeof requestedRadius === 'number' && requestedRadius > 0
+        ? requestedRadius
+        : DEFAULT_POI_RADIUS_METERS;
 
     if (categoryId && !ALLOWED_CATEGORY_IDS.has(categoryId)) {
       return NextResponse.json({ error: 'Unsupported category ID.' }, { status: 400 });
     }
 
-    const mbCategories = categoryId ? (MAPBOX_CATEGORIES[categoryId] ?? []) : [];
+    const fsqCategory = categoryId ? FOURSQUARE_CATEGORIES[categoryId] : undefined;
     const categoryGroup = categoryId ? (CATEGORY_ID_TO_GROUP[categoryId] ?? null) : null;
 
-    if (mbCategories.length === 0 || !categoryGroup) {
+    if (!fsqCategory || !categoryGroup) {
       return NextResponse.json({ pois: [] satisfies RoutePOI[] });
     }
 
-    // Query each Mapbox category and collect results
-    const allFeatures: MapboxSearchFeature[] = [];
-    const seen = new Set<string>();
+    const url = new URL('https://api.foursquare.com/v3/places/search');
+    url.searchParams.set('ll', `${lat},${lng}`);
+    url.searchParams.set('radius', String(radius));
+    url.searchParams.set('sort', 'POPULARITY');
+    url.searchParams.set('limit', '5');
+    url.searchParams.set('categories', fsqCategory);
 
-    for (const cat of mbCategories) {
-      const features = await searchMapboxCategory(token, cat, lat, lng, 5);
-      for (const f of features) {
-        const id = f.properties.mapbox_id ?? `${f.geometry.coordinates[0]}-${f.geometry.coordinates[1]}`;
-        if (!seen.has(id)) {
-          seen.add(id);
-          allFeatures.push(f);
-        }
-      }
+    const response = await fetch(url.toString(), {
+      headers: {
+        Authorization: apiKey,
+        Accept: 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error('Foursquare error:', response.status, text.substring(0, 300));
+      return NextResponse.json({ pois: [], error: 'Foursquare API failed' }, { status: 502 });
     }
 
-    const pois: RoutePOI[] = allFeatures
-      .map((f) => featureToRoutePoi(f, categoryGroup))
-      .filter((p): p is RoutePOI => p !== null)
-      .slice(0, 5);
+    const data = (await response.json()) as FoursquareSearchResponse;
+    const pois: RoutePOI[] = (data.results ?? [])
+      .map((place) => placeToRoutePoi(place, categoryGroup))
+      .filter((poi): poi is RoutePOI => poi !== null);
 
-    const response: POIResponse = { pois };
-    return NextResponse.json(response);
+    const poiResponse: POIResponse = { pois };
+    return NextResponse.json(poiResponse);
   } catch (error) {
     console.error('POI route error:', error);
-    return NextResponse.json({ pois: [] satisfies RoutePOI[] });
+    return NextResponse.json({ pois: [], error: 'Internal error' }, { status: 500 });
   }
 }

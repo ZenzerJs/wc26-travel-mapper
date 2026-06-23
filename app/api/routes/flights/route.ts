@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { searchSkyscannerFlights } from '@/lib/skyscanner';
 import { getRapidApiKey } from '@/lib/server-secrets';
 import type { FlightSearchRequest, FlightSearchResponse } from '@/lib/types';
-import { isValidFlightDate, isValidIata, normalizeIata } from '@/lib/validate-request';
+import { isValidCityName, isValidFlightDate } from '@/lib/validate-request';
 
 export async function POST(request: NextRequest) {
   const apiKey = getRapidApiKey();
@@ -23,11 +23,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   }
 
-  const { originIata, destinationIata, date } = body as Partial<FlightSearchRequest>;
+  const { originCity, destinationCity, date } = body as Partial<FlightSearchRequest>;
 
-  if (!isValidIata(originIata) || !isValidIata(destinationIata) || !isValidFlightDate(date)) {
+  if (!isValidCityName(originCity) || !isValidCityName(destinationCity) || !isValidFlightDate(date)) {
     return NextResponse.json(
-      { error: 'Request must include valid originIata and destinationIata codes.' },
+      { error: 'Request must include valid originCity and destinationCity names.' },
       { status: 400 }
     );
   }
@@ -35,8 +35,8 @@ export async function POST(request: NextRequest) {
   try {
     const flights = await searchSkyscannerFlights(
       apiKey,
-      normalizeIata(originIata),
-      normalizeIata(destinationIata),
+      originCity.trim(),
+      destinationCity.trim(),
       date
     );
     const response: FlightSearchResponse = { flights };
@@ -45,11 +45,13 @@ export async function POST(request: NextRequest) {
     console.error('Flight route error:', error);
     const message =
       process.env.NODE_ENV === 'production'
-        ? 'Flight search unavailable. Try again later.'
+        ? error instanceof Error && error.message.startsWith('No airport found')
+          ? error.message
+          : 'Flight search unavailable. Try again later.'
         : error instanceof Error
           ? error.message
           : 'Flight search unavailable. Try checking Google Flights directly.';
 
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: message, flights: [] }, { status: 502 });
   }
 }

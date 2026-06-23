@@ -103,63 +103,70 @@ async function skyscannerGet({ apiKey, path, searchParams = {} }: SkyscannerRequ
   return { response, data, text };
 }
 
-function extractPlaceId(autoCompleteData: unknown, iata: string): string | undefined {
+function extractEntityId(autoCompleteData: unknown): string | undefined {
   if (!isRecord(autoCompleteData)) {
     return undefined;
   }
 
   const items = autoCompleteData.data;
-  if (!Array.isArray(items)) {
+  if (!Array.isArray(items) || items.length === 0) {
     return undefined;
   }
-
-  const normalizedIata = iata.toUpperCase();
 
   for (const item of items) {
     if (!isRecord(item)) {
       continue;
     }
 
-    const placeId = readString(item.PlaceId) ?? readString(item.placeId);
-    const skyId = readString(item.SkyId) ?? readString(item.skyId);
-    const entityId = readString(item.EntityId) ?? readString(item.entityId);
-    const iataCode =
-      readString(item.iata) ??
-      readString(item.Iata) ??
-      readString(item.flightPlaceType === 'AIRPORT' ? skyId : undefined);
-
-    if (placeId && (skyId?.toUpperCase() === normalizedIata || iataCode?.toUpperCase() === normalizedIata)) {
-      return placeId;
+    const presentation = item.presentation;
+    if (isRecord(presentation)) {
+      const presentationId = readString(presentation.id);
+      if (presentationId) {
+        return presentationId;
+      }
     }
 
-    if (placeId && entityId && skyId?.toUpperCase() === normalizedIata) {
-      return placeId;
+    const skyId = readString(item.skyId) ?? readString(item.SkyId);
+    if (skyId) {
+      return skyId;
     }
-  }
 
-  const first = items.find((item) => isRecord(item));
-  if (first && isRecord(first)) {
-    return readString(first.PlaceId) ?? readString(first.placeId);
-  }
+    const entityId = readString(item.entityId) ?? readString(item.EntityId);
+    if (entityId) {
+      return entityId;
+    }
 
-  return undefined;
-}
-
-async function resolvePlaceId(apiKey: string, iata: string): Promise<string> {
-  const { response, data } = await skyscannerGet({
-    apiKey,
-    path: '/web/flights/auto-complete',
-    searchParams: { query: iata },
-  });
-
-  if (response.ok) {
-    const placeId = extractPlaceId(data, iata);
+    const placeId = readString(item.placeId) ?? readString(item.PlaceId);
     if (placeId) {
       return placeId;
     }
   }
 
-  return iata.toUpperCase();
+  return undefined;
+}
+
+async function resolveEntityId(apiKey: string, cityName: string): Promise<string> {
+  const { response, data, text } = await skyscannerGet({
+    apiKey,
+    path: '/flights/auto-complete',
+    searchParams: {
+      query: cityName.trim(),
+      market: 'US',
+      locale: 'en-US',
+    },
+  });
+
+  if (!response.ok) {
+    console.error(`Origin auto-complete failed for "${cityName}":`, response.status, text.substring(0, 300));
+    throw new Error(`No airport found for ${cityName}`);
+  }
+
+  const entityId = extractEntityId(data);
+  if (!entityId) {
+    throw new Error(`No airport found for ${cityName}`);
+  }
+
+  return entityId;
 }
 
 function getContext(data: unknown): Record<string, unknown> | null {
@@ -375,27 +382,28 @@ async function pollSearchUntilComplete(apiKey: string, initialData: unknown): Pr
 
 export async function searchSkyscannerFlights(
   apiKey: string,
-  originIata: string,
-  destinationIata: string,
+  originCity: string,
+  destinationCity: string,
   date?: string
 ): Promise<FlightResult[]> {
   const departDate = resolveSearchDate(date);
-  const [placeIdFrom, placeIdTo] = await Promise.all([
-    resolvePlaceId(apiKey, originIata),
-    resolvePlaceId(apiKey, destinationIata),
+  const [fromEntityId, toEntityId] = await Promise.all([
+    resolveEntityId(apiKey, originCity),
+    resolveEntityId(apiKey, destinationCity),
   ]);
 
   const { response, data, text } = await skyscannerGet({
     apiKey,
     path: '/web/flights/search-one-way',
     searchParams: {
-      placeIdFrom,
-      placeIdTo,
+      fromEntityId,
+      toEntityId,
       departDate,
       adults: '1',
       currency: 'USD',
       market: 'US',
       locale: 'en-US',
+      cabinClass: 'economy',
     },
   });
 

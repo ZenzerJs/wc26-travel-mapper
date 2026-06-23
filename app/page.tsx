@@ -197,8 +197,9 @@ export default function HomePage() {
         setIsLoadingFlights(true);
         try {
           const response = await fetchFlights({
-            originIata: origin.iata,
-            destinationIata: destination.iata,
+            originCity: origin.name,
+            destinationCity: destination.name,
+            date: new Date(Date.now() + 7 * 86_400_000).toISOString().split('T')[0],
           });
           setFlights(response.flights);
         } catch (err) {
@@ -334,8 +335,9 @@ export default function HomePage() {
     setFlights([]);
     try {
       const response = await fetchFlights({
-        originIata: activeOrigin.iata,
-        destinationIata: activeDestination.iata,
+        originCity: activeOrigin.name,
+        destinationCity: activeDestination.name,
+        date: new Date(Date.now() + 7 * 86_400_000).toISOString().split('T')[0],
       });
       setFlights(response.flights);
     } catch (err) {

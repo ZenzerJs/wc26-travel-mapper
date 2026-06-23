@@ -14,3 +14,7 @@ export function getRapidApiKey(): string | undefined {
 export function getOpenWeatherApiKey(): string | undefined {
   return process.env.OPENWEATHER_API_KEY;
 }
+
+export function getFoursquareApiKey(): string | undefined {
+  return process.env.FOURSQUARE_API_KEY;
+}
