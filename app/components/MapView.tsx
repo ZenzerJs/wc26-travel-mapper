@@ -116,10 +116,9 @@ export default function MapView({
       }
       // Insert below the first symbol layer so city labels stay on top
       if (!map.getLayer(NASA_NIGHT_LAYER)) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const firstSymbol = (map.getStyle().layers as any[])?.find(
-          (l) => l.type === 'symbol'
-        )?.id as string | undefined;
+        const firstSymbol = map
+          .getStyle()
+          .layers?.find((l) => l.type === 'symbol')?.id as string | undefined;
         map.addLayer(
           {
             id: NASA_NIGHT_LAYER,
