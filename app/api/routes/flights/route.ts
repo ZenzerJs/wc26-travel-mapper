@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchAmadeusFlights } from '@/lib/amadeus-flights';
+import { searchSkyScrapperFlights } from '@/lib/sky-scrapper';
 import { searchSkyscannerFlights } from '@/lib/skyscanner';
-import { getAmadeusCredentials, getRapidApiKey } from '@/lib/server-secrets';
+import { getAmadeusCredentials, getRapidApiFlightHost, getRapidApiKey } from '@/lib/server-secrets';
 import type { FlightSearchRequest, FlightSearchResponse } from '@/lib/types';
 import { isValidCityName, isValidFlightDate, isValidIata } from '@/lib/validate-request';
 
@@ -23,7 +24,7 @@ function productionErrorMessage(error: unknown): string {
     msg.startsWith('No flights found') ||
     msg.includes('quota') ||
     msg.includes('rate limit') ||
-    msg.includes('RapidAPI') ||
+    msg.includes('Subscribe') ||
     msg.includes('Amadeus') ||
     msg.includes('credentials')
   ) {
@@ -78,9 +79,30 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // ── 2. RapidAPI Skyscanner fallback ───────────────────────────────────────
+  // ── 2. RapidAPI Sky Scrapper (recommended — subscribe on RapidAPI) ────────
   const rapidKey = getRapidApiKey();
-  if (rapidKey) {
+  const flightHost = getRapidApiFlightHost();
+
+  if (rapidKey && flightHost.includes('sky-scrapper')) {
+    try {
+      const flights = await searchSkyScrapperFlights(
+        rapidKey,
+        originCity.trim(),
+        destinationCity.trim(),
+        departDate,
+        originIata?.trim().toUpperCase(),
+        destinationIata?.trim().toUpperCase()
+      );
+      const response: FlightSearchResponse = { flights };
+      return NextResponse.json(response);
+    } catch (error) {
+      console.error('Sky Scrapper flight error:', error);
+      errors.push(error instanceof Error ? error.message : 'Sky Scrapper search failed');
+    }
+  }
+
+  // ── 3. RapidAPI Flights Sky (legacy fallback) ─────────────────────────────
+  if (rapidKey && flightHost.includes('flights-sky')) {
     try {
       const flights = await searchSkyscannerFlights(
         rapidKey,

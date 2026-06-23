@@ -11,6 +11,11 @@ export function getRapidApiKey(): string | undefined {
   return process.env.RAPIDAPI_KEY;
 }
 
+/** RapidAPI flight provider host. Default: Sky Scrapper (subscribe on RapidAPI). */
+export function getRapidApiFlightHost(): string {
+  return process.env.RAPIDAPI_FLIGHT_HOST ?? 'sky-scrapper.p.rapidapi.com';
+}
+
 export function getAmadeusCredentials(): { clientId: string; clientSecret: string } | null {
   const clientId = process.env.AMADEUS_CLIENT_ID;
   const clientSecret = process.env.AMADEUS_CLIENT_SECRET;
