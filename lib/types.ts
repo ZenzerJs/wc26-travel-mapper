@@ -25,7 +25,8 @@ export interface POI {
   location: { lat: number; lng: number; address?: string };
 }
 
-export type GroundRouteMode = 'driving' | 'walking';
+export type GroundRouteMode = 'driving';
+export type TravelMode = 'driving' | 'flight';
 
 export type MapStyleOption = 'satellite' | 'streets' | 'night';
 

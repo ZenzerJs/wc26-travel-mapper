@@ -10,7 +10,6 @@ import {
   Clock,
   Download,
   ExternalLink,
-  FootprintsIcon,
   Fuel,
   Leaf,
   Link2,
@@ -37,14 +36,15 @@ import {
   getTimezoneAbbr,
   getTimezoneDifferenceHours,
 } from '@/lib/trip-metrics';
+import { haversineKm } from '@/lib/geo';
 import type {
   City,
   FlightResult,
-  GroundRouteMode,
   POICategoryGroup,
   POIFilter,
   RoutePOI,
   RouteResponse,
+  TravelMode,
   WeatherData,
 } from '@/lib/types';
 
@@ -54,7 +54,7 @@ interface RoutePanelProps {
   cities: City[];
   originId: string;
   destinationId: string;
-  mode: GroundRouteMode;
+  mode: TravelMode;
   route: RouteResponse | null;
   pois: RoutePOI[];
   flights: FlightResult[];
@@ -77,7 +77,7 @@ interface RoutePanelProps {
   onToggleTheme: () => void;
   onOriginChange: (id: string) => void;
   onDestinationChange: (id: string) => void;
-  onModeChange: (mode: GroundRouteMode) => void;
+  onModeChange: (mode: TravelMode) => void;
   onShowRoute: () => void;
   onRefreshRoute: () => void;
   onClearRoute: () => void;
@@ -377,26 +377,29 @@ function WeatherChip({ label, city, weather }: { label: string; city?: City; wea
 function TripInsights({
   route,
   mode,
+  flightDistanceMeters,
   originCity,
   destCity,
   originWeather,
   destWeather,
 }: {
-  route: RouteResponse;
-  mode: GroundRouteMode;
+  route?: RouteResponse;
+  mode: TravelMode;
+  flightDistanceMeters?: number;
   originCity?: City;
   destCity?: City;
   originWeather: WeatherData | null;
   destWeather: WeatherData | null;
 }) {
-  const fuel = mode === 'driving' ? estimateFuelCost(route.distanceMeters) : null;
+  const distanceMeters = route?.distanceMeters ?? flightDistanceMeters ?? 0;
+  const fuel = mode === 'driving' && route ? estimateFuelCost(route.distanceMeters) : null;
   const carbon =
-    originCity && destCity ? compareCarbon(route.distanceMeters, originCity, destCity) : null;
+    originCity && destCity && distanceMeters > 0
+      ? compareCarbon(distanceMeters, originCity, destCity)
+      : null;
 
   const hasWeather = Boolean(originWeather || destWeather);
-  const showTimezones = Boolean(
-    originCity && destCity && originCity.timezone && destCity.timezone
-  );
+  const showTimezones = Boolean(originCity?.timezone && destCity?.timezone);
   const tzDiff =
     originCity && destCity
       ? getTimezoneDifferenceHours(originCity.timezone, destCity.timezone)
@@ -532,6 +535,11 @@ export default function RoutePanel({
 
   const originCity = cities.find((c) => c.id === originId);
   const destCity = cities.find((c) => c.id === destinationId);
+  // Available in flight mode once both cities are selected
+  const activeFlightCities =
+    mode === 'flight' && originCity && destCity
+      ? { origin: { lat: originCity.lat, lng: originCity.lng }, dest: { lat: destCity.lat, lng: destCity.lng } }
+      : null;
 
   function cycleSize() {
     setPanelSize((s) => {
@@ -566,7 +574,7 @@ export default function RoutePanel({
       lines.push(`Local time — ${originCity.name}: ${getLocalTime(originCity.timezone)} (${getTimezoneAbbr(originCity.timezone)})`);
       lines.push(`Local time — ${destCity.name}: ${getLocalTime(destCity.timezone)} (${getTimezoneAbbr(destCity.timezone)})`);
     }
-    if (route && mode === 'driving') {
+    if (route && mode === 'driving' && route.distanceMeters) {
       const fuel = estimateFuelCost(route.distanceMeters);
       lines.push('');
       lines.push(`Est. fuel cost: ${fuel.costLabel} (~${Math.round(fuel.gallons)} gallons)`);
@@ -631,7 +639,8 @@ export default function RoutePanel({
   const visibleFilterOptions = FILTER_OPTIONS.filter(
     (option) => option.id !== 'gas' || mode === 'driving'
   );
-  const showFlightSuggestion = Boolean(route && route.durationSeconds > LONG_TRIP_SECONDS);
+  // Only suggest flying when in driving mode and the drive is very long
+  const showFlightSuggestion = Boolean(mode === 'driving' && route && route.durationSeconds > LONG_TRIP_SECONDS);
   const showOvernightHotels = Boolean(route && route.durationSeconds > OVERNIGHT_TRIP_SECONDS);
   const isExpanded = panelSize !== 'normal';
 
@@ -754,26 +763,42 @@ export default function RoutePanel({
             </button>
             <button
               type="button"
-              onClick={() => onModeChange('walking')}
+              onClick={() => onModeChange('flight')}
               className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-all ${
-                mode === 'walking'
-                  ? 'bg-sky-500 text-white shadow-sm'
+                mode === 'flight'
+                  ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700'
               }`}
             >
-              <FootprintsIcon className="h-4 w-4" />
-              Walking
+              <Plane className="h-4 w-4" />
+              Flight
             </button>
           </div>
 
-          {/* Show Route button */}
+          {/* Show Route / Search Flights button */}
           <button
             type="button"
             onClick={onShowRoute}
-            disabled={!canShowRoute || isLoadingRoute}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white shadow-md shadow-emerald-500/25 transition-all hover:bg-emerald-600 hover:shadow-emerald-600/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none dark:disabled:bg-slate-700 dark:disabled:text-slate-500"
+            disabled={!canShowRoute || (mode === 'flight' ? isLoadingFlights : isLoadingRoute)}
+            className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white shadow-md transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none dark:disabled:bg-slate-700 dark:disabled:text-slate-500 ${
+              mode === 'flight'
+                ? 'bg-blue-600 shadow-blue-600/25 hover:bg-blue-700 hover:shadow-blue-700/30'
+                : 'bg-emerald-500 shadow-emerald-500/25 hover:bg-emerald-600 hover:shadow-emerald-600/30'
+            }`}
           >
-            {isLoadingRoute ? (
+            {mode === 'flight' ? (
+              isLoadingFlights ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Searching flights…
+                </>
+              ) : (
+                <>
+                  <Plane className="h-4 w-4" />
+                  Search Flights
+                </>
+              )
+            ) : isLoadingRoute ? (
               <>
                 <RefreshCw className="h-4 w-4 animate-spin" />
                 Finding route…
@@ -786,13 +811,76 @@ export default function RoutePanel({
             )}
           </button>
 
-          {/* Loading skeletons */}
+          {/* Loading skeletons — driving */}
           {isLoadingRoute && (
             <div className="space-y-2">
               <Skeleton className="h-4 w-3/4 rounded-lg" />
               <Skeleton className="h-4 w-1/2 rounded-lg" />
               <Skeleton className="h-20 w-full rounded-lg" />
             </div>
+          )}
+
+          {/* ── Flight mode results ── */}
+          {mode === 'flight' && (isLoadingFlights || flights.length > 0 || flightError) && (
+            <div className="overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-br from-[#0A2540] to-[#1a3a5c]">
+              <div className="px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500/20">
+                    <Plane className="h-4 w-4 text-blue-300" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">
+                      {originCity?.name ?? '?'} → {destCity?.name ?? '?'}
+                    </p>
+                    <p className="text-xs text-blue-300">
+                      {originCity?.iata} → {destCity?.iata}
+                    </p>
+                  </div>
+                </div>
+
+                {isLoadingFlights && (
+                  <div className="mt-3 space-y-2">
+                    <Skeleton className="h-20 w-full rounded-xl bg-white/10" />
+                    <Skeleton className="h-20 w-full rounded-xl bg-white/10" />
+                    <Skeleton className="h-20 w-full rounded-xl bg-white/10" />
+                  </div>
+                )}
+
+                {flightError && (
+                  <p className="mt-3 rounded-lg bg-white/10 px-3 py-2 text-xs text-blue-200">
+                    {flightError}
+                  </p>
+                )}
+              </div>
+
+              {!isLoadingFlights && flights.length > 0 && (
+                <div className="border-t border-white/10 bg-white/5 px-4 pb-4 pt-3">
+                  <ul className="space-y-2">
+                    {flights.map((flight, index) => (
+                      <FlightResultCard
+                        key={`${flight.airline ?? 'flight'}-${index}`}
+                        flight={flight}
+                        index={index}
+                        originIata={originCity?.iata ?? ''}
+                        destIata={destCity?.iata ?? ''}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Flight mode trip insights (weather, timezone, carbon) */}
+          {mode === 'flight' && activeFlightCities && (
+            <TripInsights
+              mode="flight"
+              flightDistanceMeters={haversineKm(activeFlightCities.origin, activeFlightCities.dest) * 1000}
+              originCity={originCity}
+              destCity={destCity}
+              originWeather={originWeather}
+              destWeather={destWeather}
+            />
           )}
 
           {/* Error */}
@@ -945,7 +1033,7 @@ export default function RoutePanel({
               {/* Trip insights: weather, fuel, carbon, time zones */}
               <TripInsights
                 route={route}
-                mode={mode}
+                mode="driving"
                 originCity={originCity}
                 destCity={destCity}
                 originWeather={originWeather}
@@ -1113,9 +1201,9 @@ export default function RoutePanel({
                   </p>
                 )}
 
-                {/* POI groups */}
-                {!isLoadingPois &&
-                  POI_CATEGORY_SECTIONS.filter((g) => mode === 'driving' || g !== 'gas').map((group) => {
+                {/* POI groups — driving only */}
+                {!isLoadingPois && mode === 'driving' &&
+                  POI_CATEGORY_SECTIONS.filter((g) => g !== 'gas' || mode === 'driving').map((group) => {
                     const groupPois = displayGrouped[group];
                     if (groupPois.length === 0) return null;
 

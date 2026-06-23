@@ -11,7 +11,6 @@ const GREAT_CIRCLE_LAYER_ID = 'wc26-great-circle-route-line';
 
 const ROUTE_COLORS: Record<GroundRouteMode, string> = {
   driving: '#3b82f6',
-  walking: '#10b981',
 };
 
 export interface MapLayerData {

@@ -17,6 +17,7 @@ import type {
   POIFilter,
   RoutePOI,
   RouteResponse,
+  TravelMode,
   WeatherData,
 } from '@/lib/types';
 
@@ -29,7 +30,7 @@ export default function HomePage() {
   const [cities, setCities] = useState<City[]>([]);
   const [originId, setOriginId] = useState('');
   const [destinationId, setDestinationId] = useState('');
-  const [mode, setMode] = useState<GroundRouteMode>('driving');
+  const [mode, setMode] = useState<TravelMode>('driving');
   const [mapStyle, setMapStyle] = useState<MapStyleOption>('satellite');
   const [activeOrigin, setActiveOrigin] = useState<City | null>(null);
   const [activeDestination, setActiveDestination] = useState<City | null>(null);
@@ -104,10 +105,10 @@ export default function HomePage() {
     const urlOrigin = params.get('origin');
     const urlDest = params.get('destination');
     const urlMode = params.get('mode');
-    if (urlOrigin && urlDest && (urlMode === 'driving' || urlMode === 'walking')) {
+    if (urlOrigin && urlDest && (urlMode === 'driving' || urlMode === 'flight')) {
       setOriginId(urlOrigin);
       setDestinationId(urlDest);
-      setMode(urlMode as GroundRouteMode);
+      setMode(urlMode as TravelMode);
       setPendingAutoLoad(true);
     }
   }, []);
@@ -130,7 +131,7 @@ export default function HomePage() {
 
   // ── Gas filter cleanup ────────────────────────────────────────────────────
   useEffect(() => {
-    if (mode === 'walking' && poiFilter === 'gas') setPoiFilter('all');
+    if (mode !== 'driving' && poiFilter === 'gas') setPoiFilter('all');
   }, [mode, poiFilter]);
 
   const canShowRoute = useMemo(
@@ -159,7 +160,7 @@ export default function HomePage() {
     async (
       oId: string,
       dId: string,
-      routeMode: GroundRouteMode,
+      routeMode: TravelMode,
       cityList: City[]
     ) => {
       const origin = getCityById(cityList, oId);
@@ -168,7 +169,7 @@ export default function HomePage() {
 
       setActiveOrigin(origin);
       setActiveDestination(destination);
-      setIsLoadingRoute(true);
+      setIsLoadingRoute(false);
       setIsLoadingPois(false);
       setError(null);
       setFlightError(null);
@@ -191,11 +192,35 @@ export default function HomePage() {
       void fetchWeather(origin.lat, origin.lng).then(setOriginWeather);
       void fetchWeather(destination.lat, destination.lng).then(setDestWeather);
 
+      // ── Flight mode: skip driving directions, search flights directly ──────
+      if (routeMode === 'flight') {
+        setIsLoadingFlights(true);
+        try {
+          const response = await fetchFlights({
+            originIata: origin.iata,
+            destinationIata: destination.iata,
+          });
+          setFlights(response.flights);
+        } catch (err) {
+          setFlights([]);
+          setFlightError(
+            err instanceof Error ? err.message : 'Flight search unavailable. Try Google Flights directly.'
+          );
+        } finally {
+          setIsLoadingFlights(false);
+        }
+        return;
+      }
+
+      // ── Driving mode: fetch directions + POIs ────────────────────────────
+      // routeMode is narrowed to GroundRouteMode ('driving') here
+      const groundMode: GroundRouteMode = routeMode;
+      setIsLoadingRoute(true);
       try {
         const directions = await fetchDirections({
           origin: { lat: origin.lat, lng: origin.lng },
           destination: { lat: destination.lat, lng: destination.lng },
-          mode: routeMode,
+          mode: groundMode,
         });
         setRoute(directions);
         baseGeometryRef.current = directions.geometry;
@@ -203,7 +228,7 @@ export default function HomePage() {
         setIsLoadingPois(true);
 
         try {
-          const discoveredPois = await discoverPoisAlongRoute(directions.geometry, routeMode);
+          const discoveredPois = await discoverPoisAlongRoute(directions.geometry, groundMode);
           setPois(discoveredPois);
         } catch (poiError) {
           console.error('Failed to load POIs:', poiError);
@@ -228,7 +253,7 @@ export default function HomePage() {
   // ── Re-route through the user's selected stops (ordered along the base route) ──
   const rerouteWithStops = useCallback(
     async (stops: RoutePOI[]) => {
-      if (!activeOrigin || !activeDestination) return;
+      if (!activeOrigin || !activeDestination || mode !== 'driving') return;
 
       // No stops → restore the plain origin→destination route from base geometry.
       const baseGeometry = baseGeometryRef.current;
@@ -248,7 +273,7 @@ export default function HomePage() {
         const directions = await fetchDirections({
           origin: { lat: activeOrigin.lat, lng: activeOrigin.lng },
           destination: { lat: activeDestination.lat, lng: activeDestination.lng },
-          mode,
+          mode: 'driving',
           waypoints: orderedStops.map((stop) => ({ lat: stop.lat, lng: stop.lng })),
         });
         setRoute(directions);
@@ -352,7 +377,7 @@ export default function HomePage() {
         onToggleTheme={handleToggleTheme}
         onOriginChange={setOriginId}
         onDestinationChange={setDestinationId}
-        onModeChange={setMode}
+        onModeChange={(m) => setMode(m)}
         onShowRoute={loadRouteData}
         onRefreshRoute={loadRouteData}
         onClearRoute={handleClearRoute}
@@ -368,7 +393,7 @@ export default function HomePage() {
           destination={activeDestination ?? previewDestination}
           routeGeometry={route?.geometry ?? null}
           greatCircleGeometry={greatCircleGeometry}
-          routeMode={mode}
+          routeMode={mode === 'flight' ? 'driving' : mode}
           mapStyle={mapStyle}
           onMapStyleChange={setMapStyle}
           pois={pois}

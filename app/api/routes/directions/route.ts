@@ -60,16 +60,12 @@ function isValidMode(mode: unknown): mode is DirectionsRequest['mode'] {
   return mode === 'driving' || mode === 'walking';
 }
 
-function getFriendlyError(code: string, mode: DirectionsRequest['mode']): string {
+function getFriendlyError(code: string, _mode: DirectionsRequest['mode']): string {
   if (code === 'NoRoute' || code === 'NoSegment') {
-    if (mode === 'walking') {
-      return 'No walking route found between these cities. Walking across large distances or water may not be possible.';
-    }
-
-    return 'No driving route found between these cities. Try a different mode or destination.';
+    return 'No driving route found between these cities. Try a different destination.';
   }
 
-  return 'Unable to find a route between these cities. Please try different cities or mode.';
+  return 'Unable to find a route between these cities. Please try different cities.';
 }
 
 export async function POST(request: NextRequest) {
