@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+#__next,
+body > div:first-child {
+  height: 100%;
+}
+
+.mapboxgl-popup-content {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.mapboxgl-popup-close-button {
+  font-size: 18px;
+  padding: 4px 8px;
+}

@@ -1,0 +1,162 @@
+[
+  {
+    "id": "los-angeles",
+    "name": "Los Angeles",
+    "country": "USA",
+    "stadium": "SoFi Stadium",
+    "lat": 33.9533,
+    "lng": -118.3390,
+    "iata": "LAX",
+    "timezone": "America/Los_Angeles"
+  },
+  {
+    "id": "new-york",
+    "name": "New York",
+    "country": "USA",
+    "stadium": "MetLife Stadium",
+    "lat": 40.8135,
+    "lng": -74.0745,
+    "iata": "EWR",
+    "timezone": "America/New_York"
+  },
+  {
+    "id": "dallas",
+    "name": "Dallas",
+    "country": "USA",
+    "stadium": "AT&T Stadium",
+    "lat": 32.7473,
+    "lng": -97.0945,
+    "iata": "DFW",
+    "timezone": "America/Chicago"
+  },
+  {
+    "id": "miami",
+    "name": "Miami",
+    "country": "USA",
+    "stadium": "Hard Rock Stadium",
+    "lat": 25.9580,
+    "lng": -80.2389,
+    "iata": "MIA",
+    "timezone": "America/New_York"
+  },
+  {
+    "id": "san-francisco",
+    "name": "San Francisco",
+    "country": "USA",
+    "stadium": "Levi's Stadium",
+    "lat": 37.4030,
+    "lng": -121.9700,
+    "iata": "SFO",
+    "timezone": "America/Los_Angeles"
+  },
+  {
+    "id": "seattle",
+    "name": "Seattle",
+    "country": "USA",
+    "stadium": "Lumen Field",
+    "lat": 47.5952,
+    "lng": -122.3316,
+    "iata": "SEA",
+    "timezone": "America/Los_Angeles"
+  },
+  {
+    "id": "philadelphia",
+    "name": "Philadelphia",
+    "country": "USA",
+    "stadium": "Lincoln Financial Field",
+    "lat": 39.9008,
+    "lng": -75.1675,
+    "iata": "PHL",
+    "timezone": "America/New_York"
+  },
+  {
+    "id": "boston",
+    "name": "Boston",
+    "country": "USA",
+    "stadium": "Gillette Stadium",
+    "lat": 42.0909,
+    "lng": -71.2643,
+    "iata": "BOS",
+    "timezone": "America/New_York"
+  },
+  {
+    "id": "atlanta",
+    "name": "Atlanta",
+    "country": "USA",
+    "stadium": "Mercedes-Benz Stadium",
+    "lat": 33.7554,
+    "lng": -84.4008,
+    "iata": "ATL",
+    "timezone": "America/New_York"
+  },
+  {
+    "id": "houston",
+    "name": "Houston",
+    "country": "USA",
+    "stadium": "NRG Stadium",
+    "lat": 29.6847,
+    "lng": -95.4107,
+    "iata": "IAH",
+    "timezone": "America/Chicago"
+  },
+  {
+    "id": "kansas-city",
+    "name": "Kansas City",
+    "country": "USA",
+    "stadium": "Arrowhead Stadium",
+    "lat": 39.0489,
+    "lng": -94.4839,
+    "iata": "MCI",
+    "timezone": "America/Chicago"
+  },
+  {
+    "id": "mexico-city",
+    "name": "Mexico City",
+    "country": "Mexico",
+    "stadium": "Estadio Azteca",
+    "lat": 19.3029,
+    "lng": -99.1505,
+    "iata": "MEX",
+    "timezone": "America/Mexico_City"
+  },
+  {
+    "id": "guadalajara",
+    "name": "Guadalajara",
+    "country": "Mexico",
+    "stadium": "Estadio Akron",
+    "lat": 20.6819,
+    "lng": -103.4625,
+    "iata": "GDL",
+    "timezone": "America/Mexico_City"
+  },
+  {
+    "id": "monterrey",
+    "name": "Monterrey",
+    "country": "Mexico",
+    "stadium": "Estadio BBVA",
+    "lat": 25.6691,
+    "lng": -100.2444,
+    "iata": "MTY",
+    "timezone": "America/Monterrey"
+  },
+  {
+    "id": "toronto",
+    "name": "Toronto",
+    "country": "Canada",
+    "stadium": "BMO Field",
+    "lat": 43.6332,
+    "lng": -79.4186,
+    "iata": "YYZ",
+    "timezone": "America/Toronto"
+  },
+  {
+    "id": "vancouver",
+    "name": "Vancouver",
+    "country": "Canada",
+    "stadium": "BC Place",
+    "lat": 49.2768,
+    "lng": -123.1120,
+    "iata": "YVR",
+    "timezone": "America/Vancouver"
+  }
+]
