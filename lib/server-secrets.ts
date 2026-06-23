@@ -1,0 +1,16 @@
+/**
+ * Server-only environment variables. Never import this from client components.
+ * Secrets must not use the NEXT_PUBLIC_ prefix.
+ */
+
+export function getMapboxServerToken(): string | undefined {
+  return process.env.MAPBOX_TOKEN ?? process.env.MAPBOX_ACCESS_TOKEN;
+}
+
+export function getRapidApiKey(): string | undefined {
+  return process.env.RAPIDAPI_KEY;
+}
+
+export function getOpenWeatherApiKey(): string | undefined {
+  return process.env.OPENWEATHER_API_KEY;
+}

@@ -79,6 +79,7 @@ export default function HomePage() {
     const dark = localStorage.getItem('wc26-theme') === 'dark';
     setIsDark(dark);
     document.documentElement.classList.toggle('dark', dark);
+    if (dark) setMapStyle('night');
   }, []);
 
   const handleToggleTheme = useCallback(() => {
@@ -86,6 +87,11 @@ export default function HomePage() {
       const next = !prev;
       document.documentElement.classList.toggle('dark', next);
       localStorage.setItem('wc26-theme', next ? 'dark' : 'light');
+      // Keep map in sync: dark → night, light → satellite (unless on streets)
+      setMapStyle((cur) => {
+        if (next) return cur === 'streets' ? cur : 'night';
+        return cur === 'night' ? 'satellite' : cur;
+      });
       return next;
     });
   }, []);

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { POI_CATEGORY_IDS } from '@/lib/constants';
+import { getMapboxServerToken } from '@/lib/server-secrets';
 import type { POICategoryGroup, POIResponse, POISearchRequest, RoutePOI } from '@/lib/types';
+import { isValidCoordinate } from '@/lib/validate-request';
 
 const ALLOWED_CATEGORY_IDS = new Set(Object.values(POI_CATEGORY_IDS));
 
@@ -39,12 +41,6 @@ interface MapboxSearchFeature {
 interface MapboxSearchResponse {
   type: 'FeatureCollection';
   features: MapboxSearchFeature[];
-}
-
-function isValidCoordinate(value: unknown): value is { lat: number; lng: number } {
-  if (typeof value !== 'object' || value === null) return false;
-  const c = value as { lat?: unknown; lng?: unknown };
-  return typeof c.lat === 'number' && typeof c.lng === 'number';
 }
 
 async function searchMapboxCategory(
@@ -104,10 +100,10 @@ function featureToRoutePoi(
 
 export async function POST(request: NextRequest) {
   try {
-    const token = process.env.MAPBOX_TOKEN ?? process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    const token = getMapboxServerToken();
 
     if (!token) {
-      return NextResponse.json({ error: 'Mapbox token is not configured.' }, { status: 500 });
+      return NextResponse.json({ error: 'Mapbox server token is not configured.' }, { status: 500 });
     }
 
     let body: unknown;

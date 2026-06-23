@@ -1,39 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getOpenWeatherApiKey } from '@/lib/server-secrets';
 import type { WeatherData, WeatherResponse } from '@/lib/types';
+import { isValidCoordinate } from '@/lib/validate-request';
 
 interface OpenWeatherResponse {
   weather?: Array<{ id: number; main: string; description: string; icon: string }>;
   main?: { temp: number };
 }
 
-function isValidCoordinate(value: unknown): value is { lat: number; lng: number } {
-  if (typeof value !== 'object' || value === null) return false;
-  const c = value as { lat?: unknown; lng?: unknown };
-  return typeof c.lat === 'number' && typeof c.lng === 'number';
-}
-
 /** Map an OpenWeatherMap icon code to a simple emoji. */
 function iconToEmoji(icon: string): string {
   const code = icon.slice(0, 2);
   const map: Record<string, string> = {
-    '01': '☀️', // clear
-    '02': '🌤️', // few clouds
-    '03': '⛅', // scattered clouds
-    '04': '☁️', // broken/overcast clouds
-    '09': '🌧️', // shower rain
-    '10': '🌦️', // rain
-    '11': '⛈️', // thunderstorm
-    '13': '❄️', // snow
-    '50': '🌫️', // mist
+    '01': '☀️',
+    '02': '🌤️',
+    '03': '⛅',
+    '04': '☁️',
+    '09': '🌧️',
+    '10': '🌦️',
+    '11': '⛈️',
+    '13': '❄️',
+    '50': '🌫️',
   };
   return map[code] ?? '🌡️';
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const apiKey = process.env.OPENWEATHER_API_KEY;
+    const apiKey = getOpenWeatherApiKey();
 
-    // Graceful degradation: no key configured → return null weather (UI hides the section).
     if (!apiKey) {
       return NextResponse.json({ weather: null } satisfies WeatherResponse);
     }

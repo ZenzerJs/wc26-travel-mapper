@@ -27,7 +27,7 @@ import {
   X,
 } from 'lucide-react';
 import Skeleton from '@/app/components/Skeleton';
-import { LONG_TRIP_SECONDS, OVERNIGHT_TRIP_SECONDS, POI_CATEGORY_LABELS } from '@/lib/constants';
+import { LONG_TRIP_SECONDS, OVERNIGHT_TRIP_SECONDS, POI_CATEGORY_LABELS, POI_COLORS } from '@/lib/constants';
 import { filterPois, formatDistanceFromRoute, groupPoisByCategory } from '@/lib/pois';
 import {
   compareCarbon,
@@ -637,8 +637,7 @@ export default function RoutePanel({
 
   return (
     <div
-      className={`fixed left-4 top-4 z-10 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl shadow-2xl transition-[max-width] duration-300 md:left-4 md:right-auto md:top-4 max-md:bottom-4 max-md:left-4 max-md:right-4 max-md:top-auto ${PANEL_SIZE_CLASSES[panelSize]}`}
-      style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}
+      className={`panel-scroll fixed left-4 top-4 z-10 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl shadow-2xl transition-[max-width] duration-300 md:left-4 md:right-auto md:top-4 max-md:bottom-4 max-md:left-4 max-md:right-4 max-md:top-auto ${PANEL_SIZE_CLASSES[panelSize]}`}
     >
       {/* ── Header ── */}
       <div className="sticky top-0 z-20 rounded-t-2xl bg-[#0A2540] px-4 pb-3 pt-4">
@@ -1122,10 +1121,14 @@ export default function RoutePanel({
 
                     return (
                       <div key={group}>
-                        <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                        <h3 className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                          <span
+                            className="inline-block h-2 w-2 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/20"
+                            style={{ backgroundColor: POI_COLORS[group] }}
+                          />
                           {POI_CATEGORY_LABELS[group]}
                         </h3>
-                        <ul className={`gap-2 ${isExpanded ? 'grid grid-cols-2' : 'space-y-2'}`}>
+                        <ul className="space-y-2">
                           {groupPois.map((poi) => (
                             <PoiCard
                               key={poi.id}
@@ -1150,10 +1153,14 @@ export default function RoutePanel({
                           Recommended overnight stops
                         </p>
                       )}
-                      <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                      <h3 className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                        <span
+                          className="inline-block h-2 w-2 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/20"
+                          style={{ backgroundColor: POI_COLORS.hotels }}
+                        />
                         {POI_CATEGORY_LABELS.hotels}
                       </h3>
-                      <ul className={`gap-2 ${isExpanded ? 'grid grid-cols-2' : 'space-y-2'}`}>
+                      <ul className="space-y-2">
                         {displayGrouped.hotels.map((poi) => (
                           <HotelCard
                             key={poi.id}

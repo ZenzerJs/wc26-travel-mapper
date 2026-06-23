@@ -1,6 +1,7 @@
 import type { Map as MapboxMap, Marker, Popup } from 'mapbox-gl';
 import mapboxgl from 'mapbox-gl';
 import { POI_COLORS } from '@/lib/constants';
+import { escapeHtml } from '@/lib/escape-html';
 import type { City, GroundRouteMode, POICategoryGroup, RoutePOI } from '@/lib/types';
 
 const ROUTE_SOURCE_ID = 'wc26-directions-route';
@@ -90,7 +91,7 @@ function createCityMarker(
   element.appendChild(dot);
 
   const popup = new mapboxgl.Popup({ offset: 12, closeOnClick: false }).setHTML(
-    `<div class="min-w-[140px]"><p class="font-semibold text-gray-900">${city.name}</p><p class="text-sm text-gray-600">${city.stadium}</p></div>`
+    `<div class="min-w-[140px]"><p class="font-semibold text-gray-900">${escapeHtml(city.name)}</p><p class="text-sm text-gray-600">${escapeHtml(city.stadium)}</p></div>`
   );
 
   element.addEventListener('click', (event) => {
@@ -137,7 +138,7 @@ function createPoiMarker(
     ? '<p class="text-xs font-medium text-emerald-600">✓ On your route</p>'
     : '';
   const popup = new mapboxgl.Popup({ offset: 8, closeOnClick: false }).setHTML(
-    `<div class="min-w-[140px]"><p class="font-semibold text-gray-900">${poi.name}</p><p class="text-sm text-gray-600">${poi.category}</p>${selectedNote}</div>`
+    `<div class="min-w-[140px]"><p class="font-semibold text-gray-900">${escapeHtml(poi.name)}</p><p class="text-sm text-gray-600">${escapeHtml(poi.category)}</p>${selectedNote}</div>`
   );
 
   popup.on('close', () => {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Map from 'react-map-gl';
-import { Compass, Layers, Map as MapIcon } from 'lucide-react';
+import { Compass, Layers, Map as MapIcon, Moon } from 'lucide-react';
 import type { MapLayerMouseEvent } from 'mapbox-gl';
 import type { MapRef } from 'react-map-gl';
 import { MAP_STYLES, POI_COLORS } from '@/lib/constants';
@@ -27,6 +27,13 @@ const POI_CATEGORY_LABELS: Record<POICategoryGroup, string> = {
   gas: 'Gas',
   hotels: 'Hotels',
 };
+
+// NASA VIIRS Black Marble night lights — free, no auth required, max zoom 8.
+const NASA_NIGHT_SOURCE = 'nasa-black-marble';
+const NASA_NIGHT_LAYER = 'nasa-black-marble-layer';
+const NASA_NIGHT_TILES = [
+  'https://map1.vis.earthdata.nasa.gov/wmts-webmercator/VIIRS_Black_Marble/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg',
+];
 
 interface MapViewProps {
   origin: City | null;
@@ -64,29 +71,76 @@ export default function MapView({
   const mapRef = useRef<MapRef>(null);
   const handlesRef = useRef(createMapLayerHandles());
   const layerDataRef = useRef<MapLayerData | null>(null);
+  // Always-current ref so async callbacks (style.load) read the latest value.
+  const mapStyleRef = useRef<MapStyleOption>(mapStyle);
+  mapStyleRef.current = mapStyle;
+
   const [openPoiId, setOpenPoiId] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
   const selectedStopIdSet = useMemo(() => new Set(selectedStopIds), [selectedStopIds]);
 
   const visiblePois = useMemo(() => {
-    // "Only my stops" or POIs hidden → show just the user-added stops.
     if (onlySelectedStops || !showPoisOnMap) {
       return pois.filter((poi) => selectedStopIdSet.has(poi.id));
     }
     if (poiFilter === 'all') return pois;
-    // Show filtered category plus any selected stops (so added stops never disappear).
     return pois.filter(
       (poi) => poi.categoryGroup === poiFilter || selectedStopIdSet.has(poi.id)
     );
   }, [pois, poiFilter, showPoisOnMap, onlySelectedStops, selectedStopIdSet]);
 
+  // ── Route / POI / city layers ──────────────────────────────────────────────
   const syncMapLayers = useCallback(() => {
     const map = mapRef.current?.getMap();
     const layerData = layerDataRef.current;
     if (!map || !layerData || !map.isStyleLoaded()) return;
     addMapLayers(map, layerData, handlesRef.current);
   }, []);
+
+  // ── NASA night lights overlay ──────────────────────────────────────────────
+  const applyNightLights = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    if (!map || !map.isStyleLoaded()) return;
+
+    if (mapStyleRef.current === 'night') {
+      // Add source if missing
+      if (!map.getSource(NASA_NIGHT_SOURCE)) {
+        map.addSource(NASA_NIGHT_SOURCE, {
+          type: 'raster',
+          tiles: NASA_NIGHT_TILES,
+          tileSize: 256,
+          maxzoom: 8,
+          attribution: '© NASA VIIRS Black Marble',
+        });
+      }
+      // Insert below the first symbol layer so city labels stay on top
+      if (!map.getLayer(NASA_NIGHT_LAYER)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const firstSymbol = (map.getStyle().layers as any[])?.find(
+          (l) => l.type === 'symbol'
+        )?.id as string | undefined;
+        map.addLayer(
+          {
+            id: NASA_NIGHT_LAYER,
+            type: 'raster',
+            source: NASA_NIGHT_SOURCE,
+            paint: { 'raster-opacity': 1.0 },
+          },
+          firstSymbol
+        );
+      }
+    } else {
+      if (map.getLayer(NASA_NIGHT_LAYER)) map.removeLayer(NASA_NIGHT_LAYER);
+      if (map.getSource(NASA_NIGHT_SOURCE)) map.removeSource(NASA_NIGHT_SOURCE);
+    }
+  }, []);
+
+  // Combined sync: night lights first (base), then route/POI on top
+  const syncAll = useCallback(() => {
+    applyNightLights();
+    syncMapLayers();
+  }, [applyNightLights, syncMapLayers]);
 
   useEffect(() => {
     layerDataRef.current = {
@@ -116,40 +170,43 @@ export default function MapView({
 
   const handleMapLoad = useCallback(() => {
     setMapReady(true);
-    syncMapLayers();
-  }, [syncMapLayers]);
+    syncAll();
+  }, [syncAll]);
 
+  // Re-apply layers after any style reload (e.g. manual style switch)
   useEffect(() => {
     if (!mapReady) return;
     const map = mapRef.current?.getMap();
     if (!map) return;
-    const onStyleLoad = () => syncMapLayers();
+    const onStyleLoad = () => syncAll();
     map.on('style.load', onStyleLoad);
     return () => { map.off('style.load', onStyleLoad); };
-  }, [mapReady, syncMapLayers]);
+  }, [mapReady, syncAll]);
+
+  // When mapStyle prop changes externally (dark mode toggle), push to the map canvas.
+  const prevMapStyleRef = useRef<MapStyleOption>(mapStyle);
+  useEffect(() => {
+    if (!mapReady || mapStyle === prevMapStyleRef.current) return;
+    prevMapStyleRef.current = mapStyle;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    map.setStyle(MAP_STYLES[mapStyle]);
+    map.once('style.load', () => syncAll());
+  }, [mapStyle, mapReady, syncAll]);
 
   const handleStyleToggle = useCallback(
     (style: MapStyleOption) => {
       if (style === mapStyle) return;
       onMapStyleChange(style);
-      const map = mapRef.current?.getMap();
-      if (!map) return;
-      map.setStyle(MAP_STYLES[style]);
-      map.once('style.load', () => syncMapLayers());
+      // The prevMapStyleRef effect handles the actual map.setStyle once the prop updates.
     },
-    [mapStyle, onMapStyleChange, syncMapLayers]
+    [mapStyle, onMapStyleChange]
   );
 
   const handleResetOrientation = useCallback(() => {
     const map = mapRef.current?.getMap();
     if (!map) return;
-    map.easeTo({
-      center: [-100, 40],
-      zoom: 3,
-      bearing: 0,
-      pitch: 0,
-      duration: 1000,
-    });
+    map.easeTo({ center: [-100, 40], zoom: 3, bearing: 0, pitch: 0, duration: 1000 });
   }, []);
 
   const handleMapClick = useCallback((event: MapLayerMouseEvent) => {
@@ -213,6 +270,20 @@ export default function MapView({
             <Layers className="h-3.5 w-3.5" strokeWidth={2} />
             Streets
           </button>
+          <div className="mx-2 h-px bg-white/10" />
+          <button
+            type="button"
+            onClick={() => handleStyleToggle('night')}
+            title="Night Earth view — NASA VIIRS Black Marble"
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${
+              mapStyle === 'night'
+                ? 'bg-white/20 text-white'
+                : 'text-white/70 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            <Moon className="h-3.5 w-3.5" strokeWidth={2} />
+            Night
+          </button>
         </div>
       </div>
 
@@ -231,15 +302,17 @@ export default function MapView({
         <div className="pointer-events-none absolute bottom-8 right-4 z-10 rounded-xl border border-white/20 bg-black/50 px-3 py-2 text-xs shadow-xl backdrop-blur-md">
           <p className="mb-1.5 font-semibold tracking-wide text-white/90">Stops</p>
           <div className="flex flex-col gap-1">
-            {legendGroups.filter((g) => visiblePois.some((p) => p.categoryGroup === g)).map((group) => (
-              <span key={group} className="flex items-center gap-1.5 text-white/80">
-                <span
-                  className="inline-block h-2 w-2 rounded-full ring-1 ring-white/30"
-                  style={{ backgroundColor: POI_COLORS[group] }}
-                />
-                {POI_CATEGORY_LABELS[group]}
-              </span>
-            ))}
+            {legendGroups
+              .filter((g) => visiblePois.some((p) => p.categoryGroup === g))
+              .map((group) => (
+                <span key={group} className="flex items-center gap-1.5 text-white/80">
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-full shadow-[0_0_4px_1px_rgba(0,0,0,0.4)]"
+                    style={{ backgroundColor: POI_COLORS[group] }}
+                  />
+                  {POI_CATEGORY_LABELS[group]}
+                </span>
+              ))}
           </div>
         </div>
       )}

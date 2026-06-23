@@ -27,7 +27,7 @@ export interface POI {
 
 export type GroundRouteMode = 'driving' | 'walking';
 
-export type MapStyleOption = 'satellite' | 'streets';
+export type MapStyleOption = 'satellite' | 'streets' | 'night';
 
 export type POICategoryGroup = 'food' | 'arts' | 'outdoors' | 'gas' | 'hotels';
 

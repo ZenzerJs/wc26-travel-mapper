@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { formatDistance, formatDuration, formatStepDistance } from '@/lib/format';
+import { getMapboxServerToken } from '@/lib/server-secrets';
 import type { DirectionsRequest, RouteResponse } from '@/lib/types';
+import { isValidCoordinate } from '@/lib/validate-request';
 
 const MAPBOX_PROFILES = {
   driving: 'driving',
@@ -33,14 +35,6 @@ interface MapboxDirectionsResponse {
   routes?: MapboxRoute[];
 }
 
-function getMapboxToken(): string | undefined {
-  return (
-    process.env.MAPBOX_TOKEN ??
-    process.env.MAPBOX_ACCESS_TOKEN ??
-    process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-  );
-}
-
 /** Mapbox Directions expects coordinates as lng,lat pairs separated by semicolons. */
 function formatMapboxCoordinates(
   origin: { lat: number; lng: number },
@@ -62,15 +56,6 @@ function sanitizeWaypoints(value: unknown): Array<{ lat: number; lng: number }> 
     .map((p) => ({ lat: p.lat, lng: p.lng }));
 }
 
-function isValidCoordinate(value: unknown): value is { lat: number; lng: number } {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-
-  const coordinate = value as { lat?: unknown; lng?: unknown };
-  return typeof coordinate.lat === 'number' && typeof coordinate.lng === 'number';
-}
-
 function isValidMode(mode: unknown): mode is DirectionsRequest['mode'] {
   return mode === 'driving' || mode === 'walking';
 }
@@ -89,11 +74,11 @@ function getFriendlyError(code: string, mode: DirectionsRequest['mode']): string
 
 export async function POST(request: NextRequest) {
   try {
-    const token = getMapboxToken();
+    const token = getMapboxServerToken();
 
     if (!token) {
       return NextResponse.json(
-        { error: 'Mapbox access token is not configured on the server.' },
+        { error: 'Mapbox server token is not configured.' },
         { status: 500 }
       );
     }
@@ -137,10 +122,7 @@ export async function POST(request: NextRequest) {
     if (!mapboxResponse.ok) {
       const text = await mapboxResponse.text();
       console.error(`Mapbox Directions API error ${mapboxResponse.status}:`, text.substring(0, 500));
-      return NextResponse.json(
-        { error: `External API failed: ${mapboxResponse.status}` },
-        { status: 502 }
-      );
+      return NextResponse.json({ error: 'Directions service unavailable.' }, { status: 502 });
     }
 
     const mapboxData = (await mapboxResponse.json()) as MapboxDirectionsResponse;
