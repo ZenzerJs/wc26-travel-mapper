@@ -68,6 +68,7 @@ interface RoutePanelProps {
   selectedStops: RoutePOI[];
   isRerouting: boolean;
   stopsError: string | null;
+  poisError: string | null;
   onlySelectedStops: boolean;
   isDark: boolean;
   showPoisOnMap: boolean;
@@ -509,6 +510,7 @@ export default function RoutePanel({
   selectedStops,
   isRerouting,
   stopsError,
+  poisError,
   onlySelectedStops,
   isDark,
   showPoisOnMap,
@@ -1194,10 +1196,16 @@ export default function RoutePanel({
 
                 {/* Empty state */}
                 {!isLoadingPois && displayedPois.length === 0 && (
-                  <p className="rounded-xl bg-slate-100 px-3 py-3 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                  <p
+                    className={`rounded-xl px-3 py-3 text-xs ${
+                      poisError
+                        ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300'
+                        : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                    }`}
+                  >
                     {onlySelectedStops
                       ? 'You have not added any stops in this category yet.'
-                      : 'No stops found along this route.'}
+                      : poisError ?? 'No stops found along this route.'}
                   </p>
                 )}
 

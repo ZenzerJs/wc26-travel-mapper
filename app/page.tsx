@@ -50,6 +50,7 @@ export default function HomePage() {
   const [selectedStops, setSelectedStops] = useState<RoutePOI[]>([]);
   const [isRerouting, setIsRerouting] = useState(false);
   const [stopsError, setStopsError] = useState<string | null>(null);
+  const [poisError, setPoisError] = useState<string | null>(null);
   const [onlySelectedStops, setOnlySelectedStops] = useState(false);
   const [isDark, setIsDark] = useState(false);
 
@@ -181,6 +182,7 @@ export default function HomePage() {
       setDestWeather(null);
       setSelectedStops([]);
       setStopsError(null);
+      setPoisError(null);
       setOnlySelectedStops(false);
       baseGeometryRef.current = null;
 
@@ -233,10 +235,22 @@ export default function HomePage() {
         setIsLoadingPois(true);
 
         try {
-          const discoveredPois = await discoverPoisAlongRoute(directions.geometry, groundMode);
+          const { pois: discoveredPois, failedRequests, totalRequests } =
+            await discoverPoisAlongRoute(directions.geometry, groundMode);
           setPois(discoveredPois);
+          if (discoveredPois.length === 0 && failedRequests > 0) {
+            setPoisError(
+              failedRequests === totalRequests
+                ? 'Stop search is temporarily unavailable. Check your API keys or try again in a few minutes.'
+                : 'Some stops could not be loaded. Try refreshing the route.'
+            );
+          } else {
+            setPoisError(null);
+          }
         } catch (poiError) {
           console.error('Failed to load POIs:', poiError);
+          setPois([]);
+          setPoisError('Failed to load stops along this route.');
         } finally {
           setIsLoadingPois(false);
         }
@@ -327,6 +341,7 @@ export default function HomePage() {
     setDestWeather(null);
     setSelectedStops([]);
     setStopsError(null);
+    setPoisError(null);
     setOnlySelectedStops(false);
     baseGeometryRef.current = null;
     window.history.replaceState({}, '', window.location.pathname);
@@ -378,6 +393,7 @@ export default function HomePage() {
         selectedStops={selectedStops}
         isRerouting={isRerouting}
         stopsError={stopsError}
+        poisError={poisError}
         onlySelectedStops={onlySelectedStops}
         isDark={isDark}
         showPoisOnMap={showPoisOnMap}
