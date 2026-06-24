@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchAmadeusFlights } from '@/lib/amadeus-flights';
-import { searchSkyScrapperFlights } from '@/lib/sky-scrapper';
-import { searchSkyscannerFlights } from '@/lib/skyscanner';
-import { getAmadeusCredentials, getRapidApiFlightHost, getRapidApiKey } from '@/lib/server-secrets';
+import { searchFlights } from '@/lib/flight-search';
+import { getAmadeusCredentials, getRapidApiKey } from '@/lib/server-secrets';
 import type { FlightSearchRequest, FlightSearchResponse } from '@/lib/types';
-import { isValidCityName, isValidFlightDate, isValidIata } from '@/lib/validate-request';
+import { isValidCityName, isValidFlightDate } from '@/lib/validate-request';
 
 function resolveFlightDate(date?: string): string {
   if (date) return date;
@@ -58,69 +56,25 @@ export async function POST(request: NextRequest) {
   }
 
   const departDate = resolveFlightDate(date);
-  const errors: string[] = [];
+  const searchParams = {
+    originCity: originCity.trim(),
+    destinationCity: destinationCity.trim(),
+    originIata: originIata?.trim().toUpperCase(),
+    destinationIata: destinationIata?.trim().toUpperCase(),
+    originCountry: originCountry?.trim(),
+    destinationCountry: destinationCountry?.trim(),
+    departDate,
+  };
 
-  // ── 1. Amadeus (free tier, uses IATA directly) ───────────────────────────
+  const { flights, errors } = await searchFlights(searchParams);
+
+  if (flights.length > 0) {
+    const response: FlightSearchResponse = { flights };
+    return NextResponse.json(response);
+  }
+
   const amadeus = getAmadeusCredentials();
-  if (amadeus && isValidIata(originIata) && isValidIata(destinationIata)) {
-    try {
-      const flights = await searchAmadeusFlights(
-        amadeus.clientId,
-        amadeus.clientSecret,
-        originIata,
-        destinationIata,
-        departDate
-      );
-      const response: FlightSearchResponse = { flights };
-      return NextResponse.json(response);
-    } catch (error) {
-      console.error('Amadeus flight error:', error);
-      errors.push(error instanceof Error ? error.message : 'Amadeus search failed');
-    }
-  }
-
-  // ── 2. RapidAPI Sky Scrapper (recommended — subscribe on RapidAPI) ────────
   const rapidKey = getRapidApiKey();
-  const flightHost = getRapidApiFlightHost();
-
-  if (rapidKey && flightHost.includes('sky-scrapper')) {
-    try {
-      const flights = await searchSkyScrapperFlights(
-        rapidKey,
-        originCity.trim(),
-        destinationCity.trim(),
-        departDate,
-        originIata?.trim().toUpperCase(),
-        destinationIata?.trim().toUpperCase()
-      );
-      const response: FlightSearchResponse = { flights };
-      return NextResponse.json(response);
-    } catch (error) {
-      console.error('Sky Scrapper flight error:', error);
-      errors.push(error instanceof Error ? error.message : 'Sky Scrapper search failed');
-    }
-  }
-
-  // ── 3. RapidAPI Flights Sky (legacy fallback) ─────────────────────────────
-  if (rapidKey && flightHost.includes('flights-sky')) {
-    try {
-      const flights = await searchSkyscannerFlights(
-        rapidKey,
-        originCity.trim(),
-        destinationCity.trim(),
-        departDate,
-        originIata?.trim().toUpperCase(),
-        destinationIata?.trim().toUpperCase(),
-        originCountry?.trim(),
-        destinationCountry?.trim()
-      );
-      const response: FlightSearchResponse = { flights };
-      return NextResponse.json(response);
-    } catch (error) {
-      console.error('Skyscanner flight error:', error);
-      errors.push(error instanceof Error ? error.message : 'Skyscanner search failed');
-    }
-  }
 
   if (!amadeus && !rapidKey) {
     return NextResponse.json(
