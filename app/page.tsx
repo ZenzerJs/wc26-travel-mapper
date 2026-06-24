@@ -2,12 +2,14 @@
 
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronUp } from 'lucide-react';
 import RoutePanel from '@/app/components/RoutePanel';
 import { getCityById, getHostCities } from '@/lib/cities';
 import { fetchDirections } from '@/lib/directions';
 import { fetchFlights } from '@/lib/flights';
 import { buildGreatCircleLine, nearestRouteIndex } from '@/lib/geo';
 import { discoverPoisAlongRoute } from '@/lib/pois';
+import { useIsMobile } from '@/lib/use-mobile';
 import { fetchWeather } from '@/lib/weather';
 import type {
   City,
@@ -53,6 +55,8 @@ export default function HomePage() {
   const [poisError, setPoisError] = useState<string | null>(null);
   const [onlySelectedStops, setOnlySelectedStops] = useState(false);
   const [isDark, setIsDark] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(true);
+  const isMobile = useIsMobile();
 
   // Tracks pending auto-load from URL params
   const [pendingAutoLoad, setPendingAutoLoad] = useState(false);
@@ -412,7 +416,20 @@ export default function HomePage() {
         onPoiFilterChange={setPoiFilter}
         onViewPoiOnMap={setFocusedPoiId}
         canShowRoute={canShowRoute}
+        isPanelOpen={isPanelOpen}
+        onHidePanel={() => setIsPanelOpen(false)}
       />
+      {isMobile && !isPanelOpen && (
+        <button
+          type="button"
+          onClick={() => setIsPanelOpen(true)}
+          aria-label="Show trip planner"
+          className="fixed bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/20 bg-[#0A2540]/95 px-4 py-2.5 text-sm font-semibold text-white shadow-2xl transition-transform active:scale-[0.98] motion-reduce:transition-none"
+        >
+          <ChevronUp className="h-4 w-4 shrink-0 text-[#00A551]" aria-hidden />
+          Trip planner
+        </button>
+      )}
       <div className="absolute inset-0">
         <MapView
           origin={activeOrigin ?? previewOrigin}
@@ -429,6 +446,7 @@ export default function HomePage() {
           poiFilter={poiFilter}
           focusedPoiId={focusedPoiId}
           onFocusedPoiHandled={() => setFocusedPoiId(null)}
+          isPanelOpen={isPanelOpen}
         />
       </div>
     </main>

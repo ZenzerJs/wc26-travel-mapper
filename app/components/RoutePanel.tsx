@@ -87,6 +87,8 @@ interface RoutePanelProps {
   onPoiFilterChange: (filter: POIFilter) => void;
   onViewPoiOnMap: (poiId: string) => void;
   canShowRoute: boolean;
+  isPanelOpen: boolean;
+  onHidePanel: () => void;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -529,6 +531,8 @@ export default function RoutePanel({
   onPoiFilterChange,
   onViewPoiOnMap,
   canShowRoute,
+  isPanelOpen,
+  onHidePanel,
 }: RoutePanelProps) {
   const [stepsOpen, setStepsOpen] = useState(false);
   const [panelSize, setPanelSize] = useState<PanelSize>('normal');
@@ -648,7 +652,11 @@ export default function RoutePanel({
 
   return (
     <div
-      className={`fixed left-4 top-4 z-10 flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl shadow-2xl transition-[max-width] duration-300 md:left-4 md:right-auto md:top-4 max-md:bottom-4 max-md:left-4 max-md:right-4 max-md:top-auto max-md:max-h-[min(70dvh,calc(100dvh-2rem))] ${PANEL_SIZE_CLASSES[panelSize]}`}
+      className={`fixed left-4 top-4 z-10 flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl shadow-2xl transition-[transform,max-width] duration-300 ease-out md:left-4 md:right-auto md:top-4 max-md:bottom-4 max-md:left-4 max-md:right-4 max-md:top-auto max-md:max-h-[min(52dvh,calc(100dvh-2rem))] motion-reduce:transition-none ${
+        isPanelOpen
+          ? 'max-md:translate-y-0 max-md:opacity-100'
+          : 'max-md:pointer-events-none max-md:translate-y-[calc(100%+1.5rem)] max-md:opacity-0'
+      } ${PANEL_SIZE_CLASSES[panelSize]}`}
     >
       {/* ── Header (fixed — body scrolls beneath) ── */}
       <div className="relative z-30 shrink-0 rounded-t-2xl bg-[#0A2540] px-4 pb-3 pt-4 shadow-[0_6px_16px_rgba(0,0,0,0.35)]">
@@ -675,6 +683,15 @@ export default function RoutePanel({
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
+              onClick={onHidePanel}
+              title="Hide panel and view map"
+              aria-label="Hide trip planner"
+              className="rounded-lg p-1.5 text-blue-300 transition-colors hover:bg-white/10 hover:text-white md:hidden"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
               onClick={onToggleTheme}
               title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
               className="rounded-lg p-1.5 text-blue-300 transition-colors hover:bg-white/10 hover:text-white"
@@ -685,7 +702,7 @@ export default function RoutePanel({
               type="button"
               onClick={cycleSize}
               title={panelSize === 'full' ? 'Collapse panel' : 'Expand panel'}
-              className="rounded-lg p-1.5 text-blue-300 transition-colors hover:bg-white/10 hover:text-white"
+              className="hidden rounded-lg p-1.5 text-blue-300 transition-colors hover:bg-white/10 hover:text-white md:inline-flex"
             >
               {panelSize === 'full' ? (
                 <Minimize2 className="h-3.5 w-3.5" />

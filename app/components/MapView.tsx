@@ -9,8 +9,11 @@ import { MAP_STYLES, POI_COLORS } from '@/lib/constants';
 import {
   addMapLayers,
   createMapLayerHandles,
+  syncOpenPoiPopup,
   type MapLayerData,
 } from '@/lib/map-layers';
+import { useDebouncedCallback } from '@/lib/use-debounced-callback';
+import { useIsMobile } from '@/lib/use-mobile';
 import type { City, GroundRouteMode, MapStyleOption, POICategoryGroup, POIFilter, RoutePOI } from '@/lib/types';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
@@ -35,6 +38,8 @@ const NASA_NIGHT_TILES = [
   'https://map1.vis.earthdata.nasa.gov/wmts-webmercator/VIIRS_Black_Marble/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg',
 ];
 
+const MOBILE_POI_CAP = 24;
+
 interface MapViewProps {
   origin: City | null;
   destination: City | null;
@@ -50,6 +55,7 @@ interface MapViewProps {
   poiFilter: POIFilter;
   focusedPoiId: string | null;
   onFocusedPoiHandled: () => void;
+  isPanelOpen: boolean;
 }
 
 export default function MapView({
@@ -67,7 +73,9 @@ export default function MapView({
   poiFilter,
   focusedPoiId,
   onFocusedPoiHandled,
+  isPanelOpen,
 }: MapViewProps) {
+  const isMobile = useIsMobile();
   const mapRef = useRef<MapRef>(null);
   const handlesRef = useRef(createMapLayerHandles());
   const layerDataRef = useRef<MapLayerData | null>(null);
@@ -81,14 +89,21 @@ export default function MapView({
   const selectedStopIdSet = useMemo(() => new Set(selectedStopIds), [selectedStopIds]);
 
   const visiblePois = useMemo(() => {
+    let list: RoutePOI[];
     if (onlySelectedStops || !showPoisOnMap) {
-      return pois.filter((poi) => selectedStopIdSet.has(poi.id));
+      list = pois.filter((poi) => selectedStopIdSet.has(poi.id));
+    } else if (poiFilter === 'all') {
+      list = pois;
+    } else {
+      list = pois.filter(
+        (poi) => poi.categoryGroup === poiFilter || selectedStopIdSet.has(poi.id)
+      );
     }
-    if (poiFilter === 'all') return pois;
-    return pois.filter(
-      (poi) => poi.categoryGroup === poiFilter || selectedStopIdSet.has(poi.id)
-    );
-  }, [pois, poiFilter, showPoisOnMap, onlySelectedStops, selectedStopIdSet]);
+    if (isMobile && list.length > MOBILE_POI_CAP) {
+      return list.slice(0, MOBILE_POI_CAP);
+    }
+    return list;
+  }, [pois, poiFilter, showPoisOnMap, onlySelectedStops, selectedStopIdSet, isMobile]);
 
   // ── Route / POI / city layers ──────────────────────────────────────────────
   const syncMapLayers = useCallback(() => {
@@ -97,6 +112,8 @@ export default function MapView({
     if (!map || !layerData || !map.isStyleLoaded()) return;
     addMapLayers(map, layerData, handlesRef.current);
   }, []);
+
+  const debouncedSyncMapLayers = useDebouncedCallback(syncMapLayers, isMobile ? 120 : 0);
 
   // ── NASA night lights overlay ──────────────────────────────────────────────
   const applyNightLights = useCallback(() => {
@@ -162,12 +179,40 @@ export default function MapView({
       routeMode,
       visiblePois,
       selectedStopIds: selectedStopIdSet,
-      openPoiId,
       onPoiOpen: setOpenPoiId,
       onPoiClose: () => setOpenPoiId(null),
     };
-    syncMapLayers();
-  }, [destination, greatCircleGeometry, openPoiId, origin, routeGeometry, routeMode, selectedStopIdSet, syncMapLayers, visiblePois]);
+    if (isMobile) {
+      debouncedSyncMapLayers();
+    } else {
+      syncMapLayers();
+    }
+  }, [
+    destination,
+    greatCircleGeometry,
+    origin,
+    routeGeometry,
+    routeMode,
+    selectedStopIdSet,
+    debouncedSyncMapLayers,
+    syncMapLayers,
+    visiblePois,
+    isMobile,
+  ]);
+
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (!map || !map.isStyleLoaded()) return;
+    syncOpenPoiPopup(map, openPoiId, handlesRef.current);
+  }, [openPoiId]);
+
+  useEffect(() => {
+    if (!mapReady) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    const id = window.setTimeout(() => map.resize(), isPanelOpen ? 320 : 80);
+    return () => window.clearTimeout(id);
+  }, [isPanelOpen, mapReady, isMobile]);
 
   useEffect(() => {
     if (!focusedPoiId) return;
@@ -234,19 +279,19 @@ export default function MapView({
   return (
     <div className="relative h-full w-full">
       {/* Map controls — compass + style toggle stacked top-right */}
-      <div className="absolute right-4 top-4 z-10 flex flex-col gap-2">
+      <div className="absolute right-4 top-4 z-10 flex flex-col gap-2 max-md:right-3 max-md:top-3">
         {/* Compass / reset orientation */}
         <button
           type="button"
           onClick={handleResetOrientation}
           title="Reset map view"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/20 bg-black/40 text-white shadow-lg backdrop-blur-md transition-colors hover:bg-black/60 active:scale-95"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/20 bg-black/55 text-white shadow-lg max-md:backdrop-blur-none md:backdrop-blur-md transition-colors hover:bg-black/70 active:scale-95"
         >
           <Compass className="h-4 w-4" strokeWidth={2} />
         </button>
 
         {/* Style toggle */}
-        <div className="flex flex-col overflow-hidden rounded-lg border border-white/20 bg-black/40 shadow-lg backdrop-blur-md">
+        <div className="flex flex-col overflow-hidden rounded-lg border border-white/20 bg-black/55 shadow-lg max-md:backdrop-blur-none md:backdrop-blur-md">
           <button
             type="button"
             onClick={() => handleStyleToggle('streets')}
@@ -283,6 +328,10 @@ export default function MapView({
         initialViewState={INITIAL_VIEW_STATE}
         mapStyle={MAP_STYLES[mapStyle]}
         styleDiffing={false}
+        antialias={!isMobile}
+        dragRotate={!isMobile}
+        touchPitch={false}
+        maxPitch={isMobile ? 0 : 85}
         style={{ width: '100%', height: '100%' }}
         onClick={handleMapClick}
         onLoad={handleMapLoad}
@@ -290,7 +339,7 @@ export default function MapView({
 
       {/* POI legend */}
       {mapReady && showPoisOnMap && visiblePois.length > 0 && (
-        <div className="pointer-events-none absolute bottom-8 right-4 z-10 rounded-xl border border-white/20 bg-black/50 px-3 py-2 text-xs shadow-xl backdrop-blur-md">
+        <div className="pointer-events-none absolute bottom-8 right-4 z-10 rounded-xl border border-white/20 bg-black/60 px-3 py-2 text-xs shadow-xl max-md:bottom-4 max-md:right-3 max-md:backdrop-blur-none md:backdrop-blur-md">
           <p className="mb-1.5 font-semibold tracking-wide text-white/90">Stops</p>
           <div className="flex flex-col gap-1">
             {legendGroups
