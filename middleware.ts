@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 function applySecurityHeaders(response: NextResponse): NextResponse {
-  response.headers.set('X-Frame-Options', 'DENY');
+  // Allow portfolio site to embed this app in an iframe demo
+  response.headers.set(
+    'Content-Security-Policy',
+    "frame-ancestors 'self' https://jaydens-dev-portfolio.vercel.app https://*.vercel.app http://localhost:* http://127.0.0.1:*",
+  );
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
