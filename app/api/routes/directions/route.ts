@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { formatDistance, formatDuration, formatStepDistance } from '@/lib/format';
+import { SERVICE_UNAVAILABLE } from '@/lib/safe-errors';
 import { getMapboxServerToken } from '@/lib/server-secrets';
 import type { DirectionsRequest, RouteResponse } from '@/lib/types';
 import { isValidCoordinate } from '@/lib/validate-request';
@@ -73,10 +74,8 @@ export async function POST(request: NextRequest) {
     const token = getMapboxServerToken();
 
     if (!token) {
-      return NextResponse.json(
-        { error: 'Mapbox server token is not configured.' },
-        { status: 500 }
-      );
+      console.error('Directions not configured: missing Mapbox server token');
+      return NextResponse.json({ error: SERVICE_UNAVAILABLE.directions }, { status: 503 });
     }
 
     let body: unknown;
@@ -148,6 +147,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Directions route error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: SERVICE_UNAVAILABLE.directions }, { status: 500 });
   }
 }

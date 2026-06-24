@@ -5,6 +5,7 @@ import {
   getCategoryGroup,
   searchPoisWithCache,
 } from '@/lib/poi-search';
+import { SERVICE_UNAVAILABLE } from '@/lib/safe-errors';
 import { getCaminoApiKey, getMapboxServerToken } from '@/lib/server-secrets';
 import type { POIResponse, POISearchRequest, RoutePOI } from '@/lib/types';
 import { isValidCoordinate } from '@/lib/validate-request';
@@ -15,7 +16,8 @@ export async function POST(request: NextRequest) {
     const caminoKey = getCaminoApiKey();
 
     if (!mapboxToken && !caminoKey) {
-      return NextResponse.json({ error: 'POI search is not configured.' }, { status: 500 });
+      console.error('POI search not configured: missing Mapbox and Camino credentials');
+      return NextResponse.json({ error: SERVICE_UNAVAILABLE.pois }, { status: 503 });
     }
 
     let body: unknown;
@@ -60,6 +62,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('POI route error:', error);
-    return NextResponse.json({ pois: [], error: 'Internal error' }, { status: 500 });
+    return NextResponse.json({ pois: [], error: SERVICE_UNAVAILABLE.pois }, { status: 500 });
   }
 }

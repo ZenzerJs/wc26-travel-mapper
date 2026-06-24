@@ -648,10 +648,10 @@ export default function RoutePanel({
 
   return (
     <div
-      className={`panel-scroll fixed left-4 top-4 z-10 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl shadow-2xl transition-[max-width] duration-300 md:left-4 md:right-auto md:top-4 max-md:bottom-4 max-md:left-4 max-md:right-4 max-md:top-auto ${PANEL_SIZE_CLASSES[panelSize]}`}
+      className={`fixed left-4 top-4 z-10 flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl shadow-2xl transition-[max-width] duration-300 md:left-4 md:right-auto md:top-4 max-md:bottom-4 max-md:left-4 max-md:right-4 max-md:top-auto max-md:max-h-[min(70dvh,calc(100dvh-2rem))] ${PANEL_SIZE_CLASSES[panelSize]}`}
     >
-      {/* ── Header ── */}
-      <div className="sticky top-0 z-20 rounded-t-2xl bg-[#0A2540] px-4 pb-3 pt-4">
+      {/* ── Header (fixed — body scrolls beneath) ── */}
+      <div className="relative z-30 shrink-0 rounded-t-2xl bg-[#0A2540] px-4 pb-3 pt-4 shadow-[0_6px_16px_rgba(0,0,0,0.35)]">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             {/* WC26 badge */}
@@ -706,8 +706,8 @@ export default function RoutePanel({
         )}
       </div>
 
-      {/* ── Body ── */}
-      <div className="rounded-b-2xl bg-slate-50 p-4 dark:bg-slate-900">
+      {/* ── Body (scrollable) ── */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-b-2xl bg-slate-50 p-4 dark:bg-slate-900 [scrollbar-gutter:stable]">
         <div className="space-y-3">
 
           {/* City selects */}
