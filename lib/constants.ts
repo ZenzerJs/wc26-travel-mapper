@@ -25,8 +25,7 @@ export const POI_COLORS: Record<POICategoryGroup, string> = {
 };
 
 export const MAP_STYLES = {
-  satellite: 'mapbox://styles/mapbox/satellite-v9',
-  streets: 'mapbox://styles/mapbox/satellite-streets-v12',
+  streets: 'mapbox://styles/mapbox/streets-v12',
   night: 'mapbox://styles/mapbox/dark-v11',
 } as const;
 

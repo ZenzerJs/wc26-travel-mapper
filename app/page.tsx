@@ -31,7 +31,7 @@ export default function HomePage() {
   const [originId, setOriginId] = useState('');
   const [destinationId, setDestinationId] = useState('');
   const [mode, setMode] = useState<TravelMode>('driving');
-  const [mapStyle, setMapStyle] = useState<MapStyleOption>('satellite');
+  const [mapStyle, setMapStyle] = useState<MapStyleOption>('streets');
   const [activeOrigin, setActiveOrigin] = useState<City | null>(null);
   const [activeDestination, setActiveDestination] = useState<City | null>(null);
   const [route, setRoute] = useState<RouteResponse | null>(null);
@@ -89,10 +89,10 @@ export default function HomePage() {
       const next = !prev;
       document.documentElement.classList.toggle('dark', next);
       localStorage.setItem('wc26-theme', next ? 'dark' : 'light');
-      // Keep map in sync: dark → night, light → satellite (unless on streets)
+      // Keep map in sync: dark → night, light → streets
       setMapStyle((cur) => {
         if (next) return cur === 'streets' ? cur : 'night';
-        return cur === 'night' ? 'satellite' : cur;
+        return cur === 'night' ? 'streets' : cur;
       });
       return next;
     });

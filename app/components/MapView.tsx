@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Map from 'react-map-gl';
-import { Compass, Layers, Map as MapIcon, Moon } from 'lucide-react';
+import { Compass, Layers, Moon } from 'lucide-react';
 import type { MapLayerMouseEvent, Map as MapboxMap } from 'mapbox-gl';
 import type { MapRef } from 'react-map-gl';
 import { MAP_STYLES, POI_COLORS } from '@/lib/constants';
@@ -186,7 +186,7 @@ export default function MapView({
     else syncAll();
   }, [stabilizeMapAfterStyleChange, syncAll]);
 
-  // Re-apply layers after any style reload (e.g. satellite ↔ night toggle)
+  // Re-apply layers after any style reload (e.g. streets ↔ night toggle)
   useEffect(() => {
     if (!mapReady) return;
     const map = mapRef.current?.getMap();
@@ -247,20 +247,6 @@ export default function MapView({
 
         {/* Style toggle */}
         <div className="flex flex-col overflow-hidden rounded-lg border border-white/20 bg-black/40 shadow-lg backdrop-blur-md">
-          <button
-            type="button"
-            onClick={() => handleStyleToggle('satellite')}
-            title="Satellite view"
-            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${
-              mapStyle === 'satellite'
-                ? 'bg-white/20 text-white'
-                : 'text-white/70 hover:bg-white/10 hover:text-white'
-            }`}
-          >
-            <MapIcon className="h-3.5 w-3.5" strokeWidth={2} />
-            Satellite
-          </button>
-          <div className="mx-2 h-px bg-white/10" />
           <button
             type="button"
             onClick={() => handleStyleToggle('streets')}
