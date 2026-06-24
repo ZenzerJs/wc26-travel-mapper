@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Map from 'react-map-gl';
 import { Compass, Layers, Map as MapIcon, Moon } from 'lucide-react';
-import type { MapLayerMouseEvent } from 'mapbox-gl';
+import type { MapLayerMouseEvent, Map as MapboxMap } from 'mapbox-gl';
 import type { MapRef } from 'react-map-gl';
 import { MAP_STYLES, POI_COLORS } from '@/lib/constants';
 import {
@@ -141,6 +141,18 @@ export default function MapView({
     syncMapLayers();
   }, [applyNightLights, syncMapLayers]);
 
+  /** After setStyle, raster tiles can render fragmented unless the canvas is reset. */
+  const stabilizeMapAfterStyleChange = useCallback((map: MapboxMap) => {
+    requestAnimationFrame(() => {
+      map.resize();
+      if (map.getPitch() !== 0) {
+        map.setPitch(0);
+      }
+      map.triggerRepaint();
+      syncAll();
+    });
+  }, [syncAll]);
+
   useEffect(() => {
     layerDataRef.current = {
       origin,
@@ -169,29 +181,22 @@ export default function MapView({
 
   const handleMapLoad = useCallback(() => {
     setMapReady(true);
-    syncAll();
-  }, [syncAll]);
+    const map = mapRef.current?.getMap();
+    if (map) stabilizeMapAfterStyleChange(map);
+    else syncAll();
+  }, [stabilizeMapAfterStyleChange, syncAll]);
 
-  // Re-apply layers after any style reload (e.g. manual style switch)
+  // Re-apply layers after any style reload (e.g. satellite ↔ night toggle)
   useEffect(() => {
     if (!mapReady) return;
     const map = mapRef.current?.getMap();
     if (!map) return;
-    const onStyleLoad = () => syncAll();
+    const onStyleLoad = () => stabilizeMapAfterStyleChange(map);
     map.on('style.load', onStyleLoad);
-    return () => { map.off('style.load', onStyleLoad); };
-  }, [mapReady, syncAll]);
-
-  // When mapStyle prop changes externally (dark mode toggle), push to the map canvas.
-  const prevMapStyleRef = useRef<MapStyleOption>(mapStyle);
-  useEffect(() => {
-    if (!mapReady || mapStyle === prevMapStyleRef.current) return;
-    prevMapStyleRef.current = mapStyle;
-    const map = mapRef.current?.getMap();
-    if (!map) return;
-    map.setStyle(MAP_STYLES[mapStyle]);
-    map.once('style.load', () => syncAll());
-  }, [mapStyle, mapReady, syncAll]);
+    return () => {
+      map.off('style.load', onStyleLoad);
+    };
+  }, [mapReady, stabilizeMapAfterStyleChange]);
 
   const handleStyleToggle = useCallback(
     (style: MapStyleOption) => {
@@ -291,6 +296,7 @@ export default function MapView({
         mapboxAccessToken={MAPBOX_TOKEN}
         initialViewState={INITIAL_VIEW_STATE}
         mapStyle={MAP_STYLES[mapStyle]}
+        styleDiffing={false}
         style={{ width: '100%', height: '100%' }}
         onClick={handleMapClick}
         onLoad={handleMapLoad}
