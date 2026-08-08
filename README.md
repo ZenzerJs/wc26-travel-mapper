@@ -1,53 +1,107 @@
-# WC26 Travel Mapper
+# ⚽ WC26 Travel Mapper
 
-Multi-modal travel planning tool for FIFA World Cup 2026 host cities in North America.
+[![Next.js](https://img.shields.io/badge/Next.js-14+-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Leaflet / Maps](https://img.shields.io/badge/Map_Engine-Leaflet_&_Geo-199900?style=flat-square&logo=leaflet&logoColor=white)](https://leafletjs.com/)
 
-## Getting Started
+> An interactive, multi-modal travel planning web application built for fans attending the **2026 FIFA World Cup**. Integrates host city maps, venue POIs, flight cost comparison, driving/transit routing, and live weather forecasts across North American host stadiums.
 
-1. Copy `.env.example` to `.env.local` and add your keys:
+---
 
-```bash
-NEXT_PUBLIC_MAPBOX_TOKEN=your_public_mapbox_token
-MAPBOX_TOKEN=your_server_mapbox_token
-RAPIDAPI_KEY=your_rapidapi_key
-OPENWEATHER_API_KEY=your_openweathermap_key   # optional
+## 🌟 Key Features
+
+- **World Cup 2026 Host City Explorer**: Interactive mapping interface (`MapView.tsx`) highlighting host stadium markers, match venues, and fan zones across USA, Canada, and Mexico.
+- **Multi-Source Flight Aggregation**: Real-time flight search and price discovery using Amadeus API, Skyscanner integration, and Sky-Scrapper tools (`lib/flight-search.ts`).
+- **Venue POI & Stadium Guides**: Search local attractions, accommodations, and points of interest (`lib/pois.ts`, `POIMarker.tsx`) near host venues.
+- **Route & Directions Calculation**: Calculate transit and driving metrics between match cities (`lib/directions.ts`, `RoutePanel.tsx`).
+- **Live Weather Projections**: Matchday weather forecasts and climate metrics (`lib/weather.ts`) tailored to individual stadium locations.
+- **API Performance & Security**: Built-in rate limiting (`lib/rate-limit.ts`), server secrets sanitization (`lib/server-secrets.ts`), debounced inputs, and in-memory API caching (`lib/api-cache.ts`).
+
+---
+
+## 🏗️ Repository Architecture
+
+```text
+wc26-travel-mapper/
+├── app/
+│   ├── api/                # Next.js API routes for flights, directions, POIs, weather
+│   │   ├── routes/
+│   │   │   ├── directions/ # Routing calculation endpoint
+│   │   │   ├── flights/    # Flight aggregator endpoint
+│   │   │   └── pois/       # Points of Interest endpoint
+│   │   └── weather/        # Stadium weather endpoint
+│   ├── components/         # MapView, CityMarker, POIMarker, RoutePanel, Skeleton
+│   ├── globals.css         # Global Tailwind styles & map styling
+│   └── page.tsx            # Main interactive mapper application page
+├── lib/                    # Travel calculation engines & API integrations
+│   ├── amadeus-flights.ts  # Amadeus flight integration
+│   ├── skyscanner.ts       # Skyscanner flight integration
+│   ├── flight-search.ts    # Unified flight aggregator logic
+│   ├── directions.ts       # Distance & route calculations
+│   ├── pois.ts             # Host city POI finder
+│   ├── weather.ts          # Stadium weather API
+│   ├── rate-limit.ts       # Middleware rate-limiting
+│   └── host-cities.json    # World Cup 2026 stadium & city database
+└── public/data/            # Static geospatial data assets
 ```
 
-2. Install dependencies and run the dev server:
+---
 
-```bash
-npm install
-npm run dev
-```
+## 🚀 Getting Started
 
-Open [http://localhost:3000](http://localhost:3000) to view the app.
+### Prerequisites
 
-## Environment variables
+- **Node.js**: `v18.0.0+`
+- **npm** or **pnpm**
 
-| Variable | Exposure | Purpose |
-|---|---|---|
-| `NEXT_PUBLIC_MAPBOX_TOKEN` | Browser (public) | Map tiles & styles |
-| `MAPBOX_TOKEN` | Server only | Directions & POI proxy routes |
-| `RAPIDAPI_KEY` | Server only | Flight search |
-| `OPENWEATHER_API_KEY` | Server only | Weather chips (optional) |
+---
 
-Use **two Mapbox tokens**: a URL-restricted public token for the map, and a separate server token for API routes. Never commit `.env.local`.
+### Local Development Setup
 
-## Security
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/ZenzerJs/wc26-travel-mapper.git
+   cd wc26-travel-mapper
+   ```
 
-- API keys are proxied through Next.js API routes — RapidAPI and OpenWeather keys never reach the browser.
-- `.env.local` is gitignored; only `.env.example` (placeholders) is tracked.
-- If a key was ever shared in chat, email, or a screenshot, **rotate it** in the provider dashboard.
-- On Mapbox, restrict the public token to your domain (e.g. `localhost:3000`, `*.vercel.app`).
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
-## Deploying (Vercel)
+3. **Configure Environment Variables**:
+   Copy `.env.example` to `.env.local`:
+   ```bash
+   cp .env.example .env.local
+   ```
 
-1. Import the GitHub repo at [vercel.com/new](https://vercel.com/new)
-2. Add all env vars from `.env.local` in **Project → Settings → Environment Variables**
-3. Deploy — every push to `main` auto-deploys
+   Fill in API keys for flight search, mapping providers, and weather feeds:
+   ```env
+   # Flight & Travel APIs
+   AMADEUS_CLIENT_ID=your_amadeus_client_id
+   AMADEUS_CLIENT_SECRET=your_amadeus_client_secret
+   # Weather & Mapping keys
+   OPENWEATHER_API_KEY=your_openweather_key
+   ```
 
-## Tech Stack
+4. **Run the development server**:
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-- Next.js 14 App Router, TypeScript, Tailwind CSS
-- react-map-gl + mapbox-gl
-- Mapbox Directions & Search Box, RapidAPI Skyscanner, OpenWeatherMap
+---
+
+## 🛠️ Verification & Scripts
+
+| Command | Action |
+| :--- | :--- |
+| `npm run dev` | Launches Next.js development server |
+| `npm run build` | Compiles production application build |
+| `npm run start` | Runs production build server |
+| `npm run lint` | Checks codebase for ESLint warnings/errors |
+
+---
+
+*Developed by [ZenzerJs](https://github.com/ZenzerJs)*
