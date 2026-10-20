@@ -3,7 +3,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-14+-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![Leaflet / Maps](https://img.shields.io/badge/Map_Engine-Leaflet_&_Geo-199900?style=flat-square&logo=leaflet&logoColor=white)](https://leafletjs.com/)
+[![Mapbox GL JS](https://img.shields.io/badge/Map_Engine-Mapbox_GL_JS-4264FB?style=flat-square&logo=mapbox&logoColor=white)](https://docs.mapbox.com/mapbox-gl-js/)
 
 > An interactive, multi-modal travel planning web application built for fans attending the **2026 FIFA World Cup**. Integrates host city maps, venue POIs, flight cost comparison, driving/transit routing, and live weather forecasts across North American host stadiums.
 
@@ -78,10 +78,13 @@ wc26-travel-mapper/
 
    Fill in API keys for flight search, mapping providers, and weather feeds:
    ```env
+   # Mapbox (required for map rendering)
+   NEXT_PUBLIC_MAPBOX_TOKEN=your_public_mapbox_token
+   MAPBOX_TOKEN=your_server_mapbox_token
    # Flight & Travel APIs
    AMADEUS_CLIENT_ID=your_amadeus_client_id
    AMADEUS_CLIENT_SECRET=your_amadeus_client_secret
-   # Weather & Mapping keys
+   # Weather
    OPENWEATHER_API_KEY=your_openweather_key
    ```
 
