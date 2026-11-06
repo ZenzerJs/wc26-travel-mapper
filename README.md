@@ -1,15 +1,43 @@
+<div align="center">
+
 # ⚽ WC26 Travel Mapper
 
-[![Next.js](https://img.shields.io/badge/Next.js-14+-black?style=flat-square&logo=next.js)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![Mapbox GL JS](https://img.shields.io/badge/Map_Engine-Mapbox_GL_JS-4264FB?style=flat-square&logo=mapbox&logoColor=white)](https://docs.mapbox.com/mapbox-gl-js/)
+**Explore World Cup host cities and plan travel between venues.**
 
-> An interactive, multi-modal travel planning web application built for fans attending the **2026 FIFA World Cup**. Integrates host city maps, venue POIs, flight cost comparison, driving/transit routing, and live weather forecasts across North American host stadiums.
+[![Next.js](https://img.shields.io/badge/Next.js-14+-black?style=flat&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?style=flat&logo=typescript)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=flat&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Mapbox GL JS](https://img.shields.io/badge/Map_Engine-Mapbox_GL_JS-4264FB?style=flat&logo=mapbox&logoColor=white)](https://docs.mapbox.com/mapbox-gl-js/)
+
+**[Open live project](https://wc26-travel-mapper.vercel.app/)**
+
+<img src="docs/images/screenshot.jpg" alt="WC26 Travel Mapper interface" width="900" />
+
+<sub>Live planner after the Mapbox basemap finished rendering.</sub>
+
+</div>
 
 ---
 
-## 🌟 Key Features
+## 📋 Contents
+
+- [Overview](#-overview)
+- [Key Capabilities](#-key-capabilities)
+- [Architecture](#-architecture)
+- [Tech Stack](#-tech-stack)
+- [Getting Started](#-getting-started)
+- [Verification](#-verification)
+- [Repository Layout](#-repository-layout)
+
+---
+
+## 💡 Overview
+
+An interactive, multi-modal travel planning web application built for fans attending the **2026 FIFA World Cup**. Integrates host city maps, venue POIs, flight cost comparison, driving/transit routing, and live weather forecasts across North American host stadiums.
+
+---
+
+## ✨ Key Capabilities
 
 - **World Cup 2026 Host City Explorer**: Interactive mapping interface (`MapView.tsx`) highlighting host stadium markers, match venues, and fan zones across USA, Canada, and Mexico.
 - **Multi-Source Flight Aggregation**: Real-time flight search and price discovery using Amadeus API, Skyscanner integration, and Sky-Scrapper tools (`lib/flight-search.ts`).
@@ -20,31 +48,25 @@
 
 ---
 
-## 🏗️ Repository Architecture
+## 🏗️ Architecture
 
-```text
-wc26-travel-mapper/
-├── app/
-│   ├── api/                # Next.js API routes for flights, directions, POIs, weather
-│   │   ├── routes/
-│   │   │   ├── directions/ # Routing calculation endpoint
-│   │   │   ├── flights/    # Flight aggregator endpoint
-│   │   │   └── pois/       # Points of Interest endpoint
-│   │   └── weather/        # Stadium weather endpoint
-│   ├── components/         # MapView, CityMarker, POIMarker, RoutePanel, Skeleton
-│   ├── globals.css         # Global Tailwind styles & map styling
-│   └── page.tsx            # Main interactive mapper application page
-├── lib/                    # Travel calculation engines & API integrations
-│   ├── amadeus-flights.ts  # Amadeus flight integration
-│   ├── skyscanner.ts       # Skyscanner flight integration
-│   ├── flight-search.ts    # Unified flight aggregator logic
-│   ├── directions.ts       # Distance & route calculations
-│   ├── pois.ts             # Host city POI finder
-│   ├── weather.ts          # Stadium weather API
-│   ├── rate-limit.ts       # Middleware rate-limiting
-│   └── host-cities.json    # World Cup 2026 stadium & city database
-└── public/data/            # Static geospatial data assets
+```mermaid
+flowchart LR
+    N0["Host city selection"] --> N1["Next.js route APIs"]
+    N1["Next.js route APIs"] --> N2["Maps and travel providers"]
+    N2["Maps and travel providers"] --> N3["Routes and venue information"]
+    N3["Routes and venue information"]
 ```
+
+---
+
+## 🧱 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | next 14.2.35 |
+| UI | react ^18.3.1 |
+| Mapping | mapbox-gl ^3.9.3 |
 
 ---
 
@@ -96,7 +118,7 @@ wc26-travel-mapper/
 
 ---
 
-## 🛠️ Verification & Scripts
+## 🧪 Verification
 
 | Command | Action |
 | :--- | :--- |
@@ -107,4 +129,34 @@ wc26-travel-mapper/
 
 ---
 
-*Developed by [ZenzerJs](https://github.com/ZenzerJs)*
+## 📁 Repository Layout
+
+```text
+wc26-travel-mapper/
+├── app/
+│   ├── api/                # Next.js API routes for flights, directions, POIs, weather
+│   │   ├── routes/
+│   │   │   ├── directions/ # Routing calculation endpoint
+│   │   │   ├── flights/    # Flight aggregator endpoint
+│   │   │   └── pois/       # Points of Interest endpoint
+│   │   └── weather/        # Stadium weather endpoint
+│   ├── components/         # MapView, CityMarker, POIMarker, RoutePanel, Skeleton
+│   ├── globals.css         # Global Tailwind styles & map styling
+│   └── page.tsx            # Main interactive mapper application page
+├── lib/                    # Travel calculation engines & API integrations
+│   ├── amadeus-flights.ts  # Amadeus flight integration
+│   ├── skyscanner.ts       # Skyscanner flight integration
+│   ├── flight-search.ts    # Unified flight aggregator logic
+│   ├── directions.ts       # Distance & route calculations
+│   ├── pois.ts             # Host city POI finder
+│   ├── weather.ts          # Stadium weather API
+│   ├── rate-limit.ts       # Middleware rate-limiting
+│   └── host-cities.json    # World Cup 2026 stadium & city database
+└── public/data/            # Static geospatial data assets
+```
+
+<div align="center">
+
+*Built by [@ZenzerJs](https://github.com/ZenzerJs)*
+
+</div>
